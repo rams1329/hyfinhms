@@ -10,9 +10,19 @@ const Login = () => {
   const { token, setToken, backendUrl } = useContext(AppContext);
 
   const [state, setState] = useState("Sign Up");
-  const [email, setEmail] = useState("greatstackdev@gmail.com");
-  const [password, setPassword] = useState("12345678");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [name, setName] = useState("");
+
+  useEffect(() => {
+    if (state === "Login") {
+      setEmail("testuser@prescripto.com");
+      setPassword("12345678");
+    } else {
+      setEmail("");
+      setPassword("");
+    }
+  }, [state]);
 
   useEffect(() => {
     if (token) {
