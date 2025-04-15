@@ -3,10 +3,315 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { v2 as cloudinary } from "cloudinary";
 import razorpay from "razorpay";
+import otpGenerator from "otp-generator";
 
+import { sendOTPEmail } from "../utils/sendEmail.js";
+import { maskPhoneNumber } from "../utils/maskPhone.js";
+import { blacklistToken } from "../middlewares/sessionTimeout.js";
 import userModel from "../models/userModel.js";
 import doctorModel from "../models/doctorModel.js";
 import appointmentModel from "../models/appointmentModel.js";
+
+
+// API to send OTP for forgot password
+export const sendForgotPasswordOTP = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.json({
+        success: false,
+        message: "Email is required",
+      });
+    }
+
+    // Validate email format
+    if (!validator.isEmail(email)) {
+      return res.json({
+        success: false,
+        message: "Enter a valid email",
+      });
+    }
+
+    // Check if user exists
+    const user = await userModel.findOne({ email });
+    if (!user) {
+      return res.json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // Generate OTP
+    const otp = otpGenerator.generate(6, {
+      upperCaseAlphabets: false,
+      specialChars: false,
+    });
+
+    // Calculate OTP expiration (10 minutes from now)
+    const otpExpires = new Date(Date.now() + 10 * 60 * 1000);
+
+    // Update user with OTP
+    await userModel.updateOne(
+      { email },
+      {
+        otp,
+        otpExpires,
+      }
+    );
+
+    // Send OTP email
+    const emailSent = await sendOTPEmail(email, otp);
+    if (!emailSent) {
+      return res.json({
+        success: false,
+        message: "Failed to send OTP email",
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "OTP sent to email",
+    });
+  } catch (error) {
+    console.error(error);
+    res.json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// API to verify OTP and reset password
+export const resetPassword = async (req, res) => {
+  try {
+    const { email, otp, newPassword } = req.body;
+
+    if (!email || !otp || !newPassword) {
+      return res.json({
+        success: false,
+        message: "Email, OTP, and new password are required",
+      });
+    }
+
+    // Validate password strength
+    if (newPassword.length < 8) {
+      return res.json({
+        success: false,
+        message: "New password must be at least 8 characters long",
+      });
+    }
+
+    const user = await userModel.findOne({ email });
+
+    if (!user) {
+      return res.json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    if (user.otp !== otp) {
+      return res.json({
+        success: false,
+        message: "Invalid OTP",
+      });
+    }
+
+    if (user.otpExpires < new Date()) {
+      return res.json({
+        success: false,
+        message: "OTP expired",
+      });
+    }
+
+    // Hash new password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+    // Update password and clear OTP
+    user.password = hashedPassword;
+    user.otp = null;
+    user.otpExpires = null;
+    await user.save();
+
+    res.json({
+      success: true,
+      message: "Password reset successfully",
+    });
+  } catch (error) {
+    console.error(error);
+    res.json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// API to send OTP
+export const sendOTP = async (req, res) => {
+  try {
+    const { name, email, password } = req.body;
+
+    if (!name || !password || !email) {
+      return res.json({
+        success: false,
+        message: "Missing Details",
+      });
+    }
+
+    // Validate email format
+    if (!validator.isEmail(email)) {
+      return res.json({
+        success: false,
+        message: "Enter a valid email",
+      });
+    }
+
+    // Validate password strength
+    if (password.length < 8) {
+      return res.json({
+        success: false,
+        message: "Enter a strong password",
+      });
+    }
+
+    // Check if email already exists
+    const existingUser = await userModel.findOne({ email });
+    if (existingUser && existingUser.isVerified) {
+      return res.json({
+        success: false,
+        message: "Email already registered",
+      });
+    }
+
+    // Generate OTP
+    const otp = otpGenerator.generate(6, {
+      upperCaseAlphabets: false,
+      specialChars: false,
+    });
+
+    // Hash password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    // Calculate OTP expiration (10 minutes from now)
+    const otpExpires = new Date(Date.now() + 10 * 60 * 1000);
+
+    // Update or create user with OTP
+    if (existingUser) {
+      await userModel.updateOne(
+        { email },
+        {
+          name,
+          password: hashedPassword,
+          otp,
+          otpExpires,
+          isVerified: false,
+        }
+      );
+    } else {
+      await userModel.create({
+        name,
+        email,
+        password: hashedPassword,
+        otp,
+        otpExpires,
+        isVerified: false,
+      });
+    }
+
+    // Send OTP email
+    const emailSent = await sendOTPEmail(email, otp);
+    if (!emailSent) {
+      return res.json({
+        success: false,
+        message: "Failed to send OTP email",
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "OTP sent to email",
+    });
+  } catch (error) {
+    console.error(error);
+    res.json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// API to verify OTP and complete registration
+export const verifyOTP = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    if (!email || !otp) {
+      return res.json({
+        success: false,
+        message: "Email and OTP are required",
+      });
+    }
+
+    const user = await userModel.findOne({ email });
+
+    if (!user) {
+      return res.json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    if (user.isVerified) {
+      return res.json({
+        success: false,
+        message: "Email already verified",
+      });
+    }
+
+    if (user.otp !== otp) {
+      return res.json({
+        success: false,
+        message: "Invalid OTP",
+      });
+    }
+
+    if (user.otpExpires < new Date()) {
+      return res.json({
+        success: false,
+        message: "OTP expired",
+      });
+    }
+
+    // Mark user as verified and clear OTP
+    user.isVerified = true;
+    user.otp = null;
+    user.otpExpires = null;
+    await user.save();
+
+    // Generate JWT token
+    const token = jwt.sign(
+      {
+        id: user._id,
+      },
+      process.env.JWT_SECRET
+    );
+
+    res.json({
+      success: true,
+      token,
+      message: "Email verified successfully",
+    });
+  } catch (error) {
+    console.error(error);
+    res.json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
 
 // API to register user
 const registerUser = async (req, res) => {
@@ -116,11 +421,23 @@ const getProfile = async (req, res) => {
   try {
     const { userId } = req.body;
 
+    console.log(`[DEBUG] getProfile - userId: ${userId}`);
     const userData = await userModel.findById(userId).select("-password");
+    console.log(`[DEBUG] getProfile - original userData.phone: ${userData.phone}`);
+    
+    // Create a clean object for response
+    const responseData = {
+      ...userData.toObject(),
+      // Force phone masking in the response
+      phone: userData.phone ? maskPhoneNumber(userData.phone) : userData.phone
+    };
+    
+    console.log(`[DEBUG] getProfile - responseData.phone: ${responseData.phone}`);
 
+    // Send the response with masked phone
     res.json({
       success: true,
-      userData,
+      userData: responseData,
     });
   } catch (error) {
     console.log(error);
@@ -210,13 +527,21 @@ const bookAppointment = async (req, res) => {
     }
 
     const userData = await userModel.findById(userId).select("-password");
+    
+    // Create a copy of the user data with masked phone number for appointments
+    const userDataWithMaskedPhone = userData.toObject();
+    
+    // Mask the phone number using the utility function
+    if (userDataWithMaskedPhone.phone) {
+      userDataWithMaskedPhone.phone = maskPhoneNumber(userDataWithMaskedPhone.phone);
+    }
 
     delete docData.slots_booked;
 
     const appointmentData = {
       userId,
       docId,
-      userData,
+      userData: userDataWithMaskedPhone,
       docData,
       amount: docData.fees,
       slotTime,
@@ -383,9 +708,33 @@ const verifyRazorpay = async (req, res) => {
   }
 };
 
+// API for user logout
+const logoutUser = async (req, res) => {
+  try {
+    const { token } = req.headers;
+    
+    // Blacklist the token
+    if (token) {
+      blacklistToken(token);
+    }
+    
+    res.json({
+      success: true,
+      message: "Logged out successfully"
+    });
+  } catch (error) {
+    console.log(error);
+    res.json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
 export {
   registerUser,
   loginUser,
+  logoutUser,
   getProfile,
   updateProfile,
   bookAppointment,

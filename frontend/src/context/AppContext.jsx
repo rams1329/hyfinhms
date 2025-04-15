@@ -1,4 +1,4 @@
-import { useState, createContext, useEffect } from "react";
+import { useState, createContext, useEffect, useRef } from "react";
 import axios from "axios";
 import { toast } from "react-toastify";
 
@@ -13,9 +13,45 @@ const AppContextProvider = (props) => {
     localStorage.getItem("token") ? localStorage.getItem("token") : false
   );
   const [userData, setUserData] = useState(false);
+  const userActivityTimeoutRef = useRef(null);
+  const INACTIVITY_TIMEOUT = 10 * 60 * 1000; // 10 minutes in milliseconds
 
   const currencySymbol = "₹";
   const backendUrl = import.meta.env.VITE_BACKEND_URL;
+
+  const resetUserActivityTimeout = () => {
+    if (userActivityTimeoutRef.current) {
+      clearTimeout(userActivityTimeoutRef.current);
+    }
+    if (token) {
+      userActivityTimeoutRef.current = setTimeout(() => {
+        logout();
+        toast.info("You have been logged out due to inactivity");
+      }, INACTIVITY_TIMEOUT);
+    }
+  };
+
+  const logout = async () => {
+    try {
+      if (token) {
+        await axios.post(
+          `${backendUrl}/api/user/logout`,
+          {},
+          {
+            headers: {
+              token: token,
+            },
+          }
+        );
+      }
+    } catch (error) {
+      console.log("Logout error:", error);
+    } finally {
+      localStorage.removeItem("token");
+      setToken(false);
+      setUserData(false);
+    }
+  };
 
   const getDoctorsData = async () => {
     try {
@@ -61,6 +97,7 @@ const AppContextProvider = (props) => {
     userData,
     setUserData,
     loadUserProfileData,
+    logout,
   };
 
   useEffect(() => {
@@ -70,6 +107,24 @@ const AppContextProvider = (props) => {
   useEffect(() => {
     if (token) {
       loadUserProfileData();
+      resetUserActivityTimeout();
+      
+      // Setup activity listeners
+      const activityEvents = ["mousedown", "mousemove", "keypress", "scroll", "touchstart"];
+      const handleUserActivity = () => resetUserActivityTimeout();
+      
+      activityEvents.forEach(event => {
+        window.addEventListener(event, handleUserActivity);
+      });
+      
+      return () => {
+        if (userActivityTimeoutRef.current) {
+          clearTimeout(userActivityTimeoutRef.current);
+        }
+        activityEvents.forEach(event => {
+          window.removeEventListener(event, handleUserActivity);
+        });
+      };
     } else {
       setUserData(false);
     }

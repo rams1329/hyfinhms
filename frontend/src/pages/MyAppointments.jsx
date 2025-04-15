@@ -2,6 +2,9 @@ import React, { useContext, useEffect, useState } from "react";
 import axios from "axios";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
+import * as XLSX from 'xlsx';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 import { AppContext } from "../context/AppContext";
 
@@ -132,6 +135,81 @@ const MyAppointments = () => {
     } catch (error) {}
   };
 
+  // Function to download appointments as Excel
+  const downloadAsExcel = () => {
+    if (appointments.length === 0) {
+      toast.error("No appointments to download");
+      return;
+    }
+
+    // Prepare the Excel data
+    const excelData = appointments.map((appointment, index) => ({
+      "No.": index + 1,
+      "Doctor Name": appointment?.docData?.name || "N/A",
+      "Specialty": appointment?.docData?.speciality || "N/A",
+      "Date": appointment?.slotDate ? slotDateFormat(appointment.slotDate) : "N/A",
+      "Time": appointment?.slotTime || "N/A",
+      "Address": appointment?.docData?.address ? 
+        `${appointment.docData.address.line1}, ${appointment.docData.address.line2}` : "N/A",
+      "Status": appointment?.cancelled ? "Cancelled" : 
+                appointment?.isCompleted ? "Completed" : 
+                appointment?.payment ? "Paid" : "Payment Pending"
+    }));
+
+    // Create worksheet and workbook
+    const worksheet = XLSX.utils.json_to_sheet(excelData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Appointments");
+
+    // Generate Excel file
+    XLSX.writeFile(workbook, "my_appointments.xlsx");
+    toast.success("Appointments downloaded as Excel");
+  };
+
+  // Function to download appointments as PDF
+  const downloadAsPDF = () => {
+    if (appointments.length === 0) {
+      toast.error("No appointments to download");
+      return;
+    }
+
+    // Create new PDF document
+    const doc = new jsPDF();
+    
+    // Add title
+    doc.setFontSize(16);
+    doc.text("My Appointments", 14, 15);
+    
+    // Prepare table data
+    const tableData = appointments.map((appointment, index) => [
+      index + 1,
+      appointment?.docData?.name || "N/A",
+      appointment?.docData?.speciality || "N/A",
+      appointment?.slotDate ? slotDateFormat(appointment.slotDate) : "N/A",
+      appointment?.slotTime || "N/A",
+      appointment?.cancelled ? "Cancelled" : 
+      appointment?.isCompleted ? "Completed" : 
+      appointment?.payment ? "Paid" : "Payment Pending"
+    ]);
+    
+    // Set column headers
+    const headers = [["No.", "Doctor Name", "Specialty", "Date", "Time", "Status"]];
+    
+    // Generate table using autoTable directly
+    autoTable(doc, {
+      head: headers,
+      body: tableData,
+      startY: 20,
+      theme: 'grid',
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [66, 66, 255] }
+    });
+    
+    // Save PDF
+    doc.save("my_appointments.pdf");
+    toast.success("Appointments downloaded as PDF");
+  };
+
   useEffect(() => {
     if (token) {
       getUserAppointments();
@@ -140,9 +218,24 @@ const MyAppointments = () => {
 
   return (
     <div>
-      <p className="pb-3 mt-12 font-medium text-zinc-700 border-b">
-        My appointments
-      </p>
+      <div className="flex justify-between items-center pb-3 mt-12 border-b">
+        <p className="font-medium text-zinc-700">My appointments</p>
+        
+        <div className="flex gap-2">
+          <button 
+            onClick={downloadAsExcel}
+            className="text-sm bg-green-600 text-white px-3 py-2 rounded hover:bg-green-700 transition-all duration-300"
+          >
+            Download as Excel
+          </button>
+          <button 
+            onClick={downloadAsPDF}
+            className="text-sm bg-red-600 text-white px-3 py-2 rounded hover:bg-red-700 transition-all duration-300"
+          >
+            Download as PDF
+          </button>
+        </div>
+      </div>
       <div>
         {appointments.map((item, index) => (
           <div

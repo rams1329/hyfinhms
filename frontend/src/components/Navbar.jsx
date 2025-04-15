@@ -6,13 +6,12 @@ import { AppContext } from "../context/AppContext";
 
 const Navbar = () => {
   const navigate = useNavigate();
-  const { token, setToken, userData } = useContext(AppContext);
+  const { token, logout, userData } = useContext(AppContext);
 
   const [showMenu, setShowMenu] = useState(false);
 
-  const logout = () => {
-    setToken(false);
-    localStorage.removeItem("token");
+  const handleLogout = () => {
+    logout();
     navigate("/");
   };
 
@@ -22,7 +21,7 @@ const Navbar = () => {
         onClick={() => navigate("/")}
         src={assets.logo}
         alt=""
-        className="w-33 cursor-pointer"
+        className="w-28 cursor-pointer"
       />
       <ul className="hidden md:flex items-start gap-5 font-medium">
         <NavLink to={"/"}>
@@ -62,19 +61,33 @@ const Navbar = () => {
                 >
                   My Appointments
                 </p>
-                <p onClick={logout} className="hover:text-black cursor-pointer">
+                <p onClick={handleLogout} className="hover:text-black cursor-pointer">
                   Logout
                 </p>
               </div>
             </div>
           </div>
         ) : (
-          <button
-            onClick={() => navigate("/login")}
-            className="bg-primary text-white px-8 py-3 rounded-full font-light hidden md:block"
-          >
-            Create account
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => {
+                navigate("/login");
+                localStorage.setItem("loginState", "Login");
+              }}
+              className="text-primary border border-primary px-6 py-2.5 rounded-full font-light hidden md:block"
+            >
+              Login
+            </button>
+            <button
+              onClick={() => {
+                navigate("/login");
+                localStorage.setItem("loginState", "Sign Up");
+              }}
+              className="bg-primary text-white px-6 py-2.5 rounded-full font-light hidden md:block"
+            >
+              Create account
+            </button>
+          </div>
         )}
 
         <img
@@ -91,7 +104,7 @@ const Navbar = () => {
           } md:hidden right-0 top-0 bottom-0 z-20 overflow-hidden bg-white transition-all`}
         >
           <div className="flex items-center justify-between px-5 py-6">
-            <img src={assets.logo} alt="" className="w-36" />
+            <img src={assets.logo} alt="" className="w-28" />
             <img
               src={assets.cross_icon}
               onClick={() => setShowMenu(false)}

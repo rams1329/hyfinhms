@@ -3,6 +3,7 @@ import express from "express";
 import {
   registerUser,
   loginUser,
+  logoutUser,
   getProfile,
   updateProfile,
   bookAppointment,
@@ -10,14 +11,23 @@ import {
   cancelAppointment,
   paymentRazorpay,
   verifyRazorpay,
+  sendOTP,
+  verifyOTP,
+  sendForgotPasswordOTP,
+  resetPassword,
 } from "../controllers/userController.js";
 import authUser from "../middlewares/authUser.js";
 import upload from "../middlewares/multer.js";
 
 const userRouter = express.Router();
 
+userRouter.post("/send-otp", sendOTP);
+userRouter.post("/verify-otp", verifyOTP);
+userRouter.post("/forgot-password", sendForgotPasswordOTP);
+userRouter.post("/reset-password", resetPassword);
 userRouter.post("/register", registerUser);
 userRouter.post("/login", loginUser);
+userRouter.post("/logout", logoutUser);
 userRouter.get("/get-profile", authUser, getProfile);
 userRouter.put(
   "/update-profile",
