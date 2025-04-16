@@ -6,12 +6,13 @@ import { AppContext } from "../context/AppContext";
 
 const Navbar = () => {
   const navigate = useNavigate();
-  const { token, logout, userData } = useContext(AppContext);
+  const { token, setToken, userData } = useContext(AppContext);
 
   const [showMenu, setShowMenu] = useState(false);
 
-  const handleLogout = () => {
-    logout();
+  const logout = () => {
+    setToken(false);
+    localStorage.removeItem("token");
     navigate("/");
   };
 
@@ -61,7 +62,7 @@ const Navbar = () => {
                 >
                   My Appointments
                 </p>
-                <p onClick={handleLogout} className="hover:text-black cursor-pointer">
+                <p onClick={logout} className="hover:text-black cursor-pointer">
                   Logout
                 </p>
               </div>
@@ -70,10 +71,7 @@ const Navbar = () => {
         ) : (
           <div className="flex items-center gap-3">
             <button
-              onClick={() => {
-                navigate("/login");
-                localStorage.setItem("loginState", "Login");
-              }}
+              onClick={() => navigate("/login")}
               className="text-primary border border-primary px-6 py-2.5 rounded-full font-light hidden md:block"
             >
               Login

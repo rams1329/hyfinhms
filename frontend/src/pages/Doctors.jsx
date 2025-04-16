@@ -5,11 +5,9 @@ import { AppContext } from "../context/AppContext";
 
 const Doctors = () => {
   const navigate = useNavigate();
-  const { speciality } = useParams();
   const { doctors } = useContext(AppContext);
 
   const [filterDoc, setFilterDoc] = useState([]);
-  const [showFilters, setShowFilters] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [sortOption, setSortOption] = useState("default");
   const [currentPage, setCurrentPage] = useState(1);
@@ -18,15 +16,10 @@ const Doctors = () => {
 
   useEffect(() => {
     applyFilter();
-  }, [doctors, speciality, searchTerm, sortOption]);
+  }, [doctors, searchTerm, sortOption]);
 
   const applyFilter = () => {
     let filtered = [...doctors];
-    
-    // Apply specialty filter
-    if (speciality) {
-      filtered = filtered.filter((doc) => doc.speciality === speciality);
-    }
     
     // Apply search filter
     if (searchTerm.trim() !== "") {
@@ -46,9 +39,9 @@ const Doctors = () => {
     } else if (sortOption === "availability") {
       filtered.sort((a, b) => (b.available === a.available ? 0 : b.available ? 1 : -1));
     } else if (sortOption === "price-low") {
-      filtered.sort((a, b) => (a.fees || 0) - (b.fees || 0));
+      filtered.sort((a, b) => (a.consultationFee || 0) - (b.consultationFee || 0));
     } else if (sortOption === "price-high") {
-      filtered.sort((a, b) => (b.fees || 0) - (a.fees || 0));
+      filtered.sort((a, b) => (b.consultationFee || 0) - (a.consultationFee || 0));
     }
     
     setFilterDoc(filtered);
@@ -78,7 +71,7 @@ const Doctors = () => {
 
   return (
     <div>
-      <p className="text-gray-600">Browse through the doctors specialist.</p>
+      <p className="text-gray-600">Browse through our doctors.</p>
       
       {/* Search and Sort Controls */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-3 my-4">
@@ -130,186 +123,93 @@ const Doctors = () => {
         </button>
       </div>
 
-      <div className="flex flex-col sm:flex-row items-start gap-5 mt-5">
-        <button
-          onClick={() => setShowFilters((prev) => !prev)}
-          className={`py-1 px-3 border rounded text-sm transition-all sm:hidden ${
-            showFilters ? "bg-primary text-white" : ""
-          }`}
-        >
-          Filters
-        </button>
-
-        <div
-          className={` flex-col gap-4 text-sm text-gray-600 ${
-            showFilters ? "flex" : "hidden sm:flex"
-          }`}
-        >
-          <p
-            onClick={() =>
-              speciality === "General physician"
-                ? navigate(`/doctors`)
-                : navigate(`/doctors/General physician`)
-            }
-            className={`w-[94vw] sm:w-auto pl-3 py-1.5 pr-16 border border-gray-300 rounded transition-all cursor-pointer ${
-              speciality === "General physician"
-                ? "bg-indigo-100 text-black"
-                : ""
-            }`}
-          >
-            General physician
-          </p>
-          <p
-            onClick={() =>
-              speciality === "Gynecologist"
-                ? navigate(`/doctors`)
-                : navigate(`/doctors/Gynecologist`)
-            }
-            className={`w-[94vw] sm:w-auto pl-3 py-1.5 pr-16 border border-gray-300 rounded transition-all cursor-pointer ${
-              speciality === "Gynecologist" ? "bg-indigo-100 text-black" : ""
-            }`}
-          >
-            Gynecologist
-          </p>
-          <p
-            onClick={() =>
-              speciality === "Dermatologist"
-                ? navigate(`/doctors`)
-                : navigate(`/doctors/Dermatologist`)
-            }
-            className={`w-[94vw] sm:w-auto pl-3 py-1.5 pr-16 border border-gray-300 rounded transition-all cursor-pointer ${
-              speciality === "Dermatologist" ? "bg-indigo-100 text-black" : ""
-            }`}
-          >
-            Dermatologist
-          </p>
-          <p
-            onClick={() =>
-              speciality === "Pediatricians"
-                ? navigate(`/doctors`)
-                : navigate(`/doctors/Pediatricians`)
-            }
-            className={`w-[94vw] sm:w-auto pl-3 py-1.5 pr-16 border border-gray-300 rounded transition-all cursor-pointer ${
-              speciality === "Pediatricians" ? "bg-indigo-100 text-black" : ""
-            }`}
-          >
-            Pediatricians
-          </p>
-          <p
-            onClick={() =>
-              speciality === "Neurologist"
-                ? navigate(`/doctors`)
-                : navigate(`/doctors/Neurologist`)
-            }
-            className={`w-[94vw] sm:w-auto pl-3 py-1.5 pr-16 border border-gray-300 rounded transition-all cursor-pointer ${
-              speciality === "Neurologist" ? "bg-indigo-100 text-black" : ""
-            }`}
-          >
-            Neurologist
-          </p>
-          <p
-            onClick={() =>
-              speciality === "Gastroenterologist"
-                ? navigate(`/doctors`)
-                : navigate(`/doctors/Gastroenterologist`)
-            }
-            className={`w-[94vw] sm:w-auto pl-3 py-1.5 pr-16 border border-gray-300 rounded transition-all cursor-pointer ${
-              speciality === "Gastroenterologist"
-                ? "bg-indigo-100 text-black"
-                : ""
-            }`}
-          >
-            Gastroenterologist
-          </p>
+      <div className="w-full">
+        {/* Results count */}
+        <p className="text-sm text-gray-600 mb-4">{filterDoc.length} doctors found</p>
+        
+        {/* Doctors grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 gap-y-6">
+          {currentDoctors.map((item, index) => (
+            <div
+              key={index}
+              onClick={() => navigate(`/appointment/${item._id}`)}
+              className="border border-blue-200 rounded-xl overflow-hidden cursor-pointer hover:translate-y-[-10px] transition-all duration-500"
+            >
+              <img src={item.image} alt="" className="w-full h-auto object-contain" />
+              <div className="p-4">
+                <div
+                  className={`flex items-center gap-2 text-sm text-center ${
+                    item.available ? "text-green-500" : "text-gray-500"
+                  }`}
+                >
+                  <p
+                    className={`w-2 h-2 ${
+                      item.available ? "bg-green-500" : "bg-gray-500"
+                    } rounded-full`}
+                  ></p>{" "}
+                  <p>{item.available ? "Available" : "Not Available"}</p>
+                </div>
+                <p className="text-gray-900 text-lg font-medium">{item.name}</p>
+                <p className="text-gray-600 text-sm">{item.speciality}</p>
+                {item.consultationFee && (
+                  <p className="text-indigo-600 font-medium mt-1">Fee: ${item.consultationFee}</p>
+                )}
+              </div>
+            </div>
+          ))}
         </div>
-        <div className="w-full">
-          {/* Results count */}
-          <p className="text-sm text-gray-600 mb-4">{filterDoc.length} doctors found</p>
-          
-          {/* Doctors grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 gap-y-6">
-            {currentDoctors.map((item, index) => (
-              <div
-                key={index}
-                onClick={() => navigate(`/appointment/${item._id}`)}
-                className="border border-blue-200 rounded-xl overflow-hidden cursor-pointer hover:translate-y-[-10px] transition-all duration-500"
-              >
-                <img src={item.image} alt="" className="w-full h-auto object-contain" />
-                <div className="p-4">
-                  <div
-                    className={`flex items-center gap-2 text-sm text-center ${
-                      item.available ? "text-green-500" : "text-gray-500"
+        
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex justify-center mt-8">
+            <nav>
+              <ul className="flex items-center gap-1">
+                <li>
+                  <button
+                    onClick={() => paginate(Math.max(1, currentPage - 1))}
+                    disabled={currentPage === 1}
+                    className={`px-3 py-1 rounded ${
+                      currentPage === 1
+                        ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                        : "bg-indigo-100 text-indigo-700 hover:bg-indigo-200"
                     }`}
                   >
-                    <p
-                      className={`w-2 h-2 ${
-                        item.available ? "bg-green-500" : "bg-gray-500"
-                      } rounded-full`}
-                    ></p>{" "}
-                    <p>{item.available ? "Available" : "Not Available"}</p>
-                  </div>
-                  <p className="text-gray-900 text-lg font-medium">{item.name}</p>
-                  <p className="text-gray-600 text-sm">{item.speciality}</p>
-                  {item.fees && (
-                    <p className="text-indigo-600 font-medium mt-1">Fee: ${item.fees}</p>
-                  )}
-                </div>
-              </div>
-            ))}
+                    Prev
+                  </button>
+                </li>
+                
+                {[...Array(totalPages).keys()].map((number) => (
+                  <li key={number + 1}>
+                    <button
+                      onClick={() => paginate(number + 1)}
+                      className={`px-3 py-1 rounded ${
+                        currentPage === number + 1
+                          ? "bg-indigo-500 text-white"
+                          : "bg-indigo-100 text-indigo-700 hover:bg-indigo-200"
+                      }`}
+                    >
+                      {number + 1}
+                    </button>
+                  </li>
+                ))}
+                
+                <li>
+                  <button
+                    onClick={() => paginate(Math.min(totalPages, currentPage + 1))}
+                    disabled={currentPage === totalPages}
+                    className={`px-3 py-1 rounded ${
+                      currentPage === totalPages
+                        ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                        : "bg-indigo-100 text-indigo-700 hover:bg-indigo-200"
+                    }`}
+                  >
+                    Next
+                  </button>
+                </li>
+              </ul>
+            </nav>
           </div>
-          
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex justify-center mt-8">
-              <nav>
-                <ul className="flex items-center gap-1">
-                  <li>
-                    <button
-                      onClick={() => paginate(Math.max(1, currentPage - 1))}
-                      disabled={currentPage === 1}
-                      className={`px-3 py-1 rounded ${
-                        currentPage === 1
-                          ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-                          : "bg-indigo-100 text-indigo-700 hover:bg-indigo-200"
-                      }`}
-                    >
-                      Prev
-                    </button>
-                  </li>
-                  
-                  {[...Array(totalPages).keys()].map((number) => (
-                    <li key={number + 1}>
-                      <button
-                        onClick={() => paginate(number + 1)}
-                        className={`px-3 py-1 rounded ${
-                          currentPage === number + 1
-                            ? "bg-indigo-500 text-white"
-                            : "bg-indigo-100 text-indigo-700 hover:bg-indigo-200"
-                        }`}
-                      >
-                        {number + 1}
-                      </button>
-                    </li>
-                  ))}
-                  
-                  <li>
-                    <button
-                      onClick={() => paginate(Math.min(totalPages, currentPage + 1))}
-                      disabled={currentPage === totalPages}
-                      className={`px-3 py-1 rounded ${
-                        currentPage === totalPages
-                          ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-                          : "bg-indigo-100 text-indigo-700 hover:bg-indigo-200"
-                      }`}
-                    >
-                      Next
-                    </button>
-                  </li>
-                </ul>
-              </nav>
-            </div>
-          )}
-        </div>
+        )}
       </div>
     </div>
   );

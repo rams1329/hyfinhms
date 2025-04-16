@@ -4,7 +4,7 @@ import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 import * as XLSX from 'xlsx';
 import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import 'jspdf-autotable';
 
 import { AppContext } from "../context/AppContext";
 
@@ -195,8 +195,8 @@ const MyAppointments = () => {
     // Set column headers
     const headers = [["No.", "Doctor Name", "Specialty", "Date", "Time", "Status"]];
     
-    // Generate table using autoTable directly
-    autoTable(doc, {
+    // Generate table
+    doc.autoTable({
       head: headers,
       body: tableData,
       startY: 20,

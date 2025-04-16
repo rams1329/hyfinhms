@@ -6,8 +6,6 @@ import razorpay from "razorpay";
 import otpGenerator from "otp-generator";
 
 import { sendOTPEmail } from "../utils/sendEmail.js";
-import { maskPhoneNumber } from "../utils/maskPhone.js";
-import { blacklistToken } from "../middlewares/sessionTimeout.js";
 import userModel from "../models/userModel.js";
 import doctorModel from "../models/doctorModel.js";
 import appointmentModel from "../models/appointmentModel.js";
@@ -42,7 +40,7 @@ export const sendForgotPasswordOTP = async (req, res) => {
       });
     }
 
-    // Generate OTP
+// Generate OTP
     const otp = otpGenerator.generate(6, {
       upperCaseAlphabets: false,
       specialChars: false,
@@ -312,8 +310,76 @@ export const verifyOTP = async (req, res) => {
     });
   }
 };
+const loginUser = async (req, res) => {
+  try {
+    const { email, password } = req.body;
 
-// API to register user
+    const user = await userModel.findOne({ email });
+
+    if (!user) {
+      return res.json({
+        success: false,
+        message: "User does not exist"
+      });
+    }
+
+    // Check if account is locked
+    if (user.isLocked()) {
+      const timeLeft = Math.ceil((user.lockUntil - new Date()) / 1000 / 60); // minutes left
+      return res.json({
+        success: false,
+        message: "Account is locked",
+        timeLeft: timeLeft
+      });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+
+    if (!isMatch) {
+      await user.incrementLoginAttempts();
+
+      if (user.loginAttempts + 1 >= 5) {
+        return res.json({
+          success: false,
+          message: "Account locked due to too many failed attempts",
+          timeLeft: 10
+        });
+      }
+
+      return res.json({
+        success: false,
+        message: "Invalid Credentials",
+        attemptsLeft: 5 - (user.loginAttempts + 1)
+      });
+    }
+
+    // Reset login attempts on successful login
+    await user.updateOne({
+      $set: {
+        loginAttempts: 0,
+        lockUntil: null
+      }
+    });
+
+    const token = jwt.sign(
+      { id: user._id },
+      process.env.JWT_SECRET
+    );
+
+    return res.json({
+      success: true,
+      token,
+    });
+  } catch (error) {
+    console.log(error);
+    res.json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+//API to register user
 const registerUser = async (req, res) => {
   try {
     const { name, email, password } = req.body;
@@ -374,70 +440,58 @@ const registerUser = async (req, res) => {
   }
 };
 
-// API for user login
-const loginUser = async (req, res) => {
-  try {
-    const { email, password } = req.body;
+// // API for user login
+// const loginUser = async (req, res) => {
+//   try {
+//     const { email, password } = req.body;
 
-    const user = await userModel.findOne({ email });
+//     const user = await userModel.findOne({ email });
 
-    if (!user) {
-      return res.json({
-        success: false,
-        message: "User does not exist",
-      });
-    }
+//     if (!user) {
+//       return res.json({
+//         success: false,
+//         message: "User does not exist",
+//       });
+//     }
 
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (isMatch) {
-      const token = jwt.sign(
-        {
-          id: user._id,
-        },
-        process.env.JWT_SECRET
-      );
+//     const isMatch = await bcrypt.compare(password, user.password);
+//     if (isMatch) {
+//       const token = jwt.sign(
+//         {
+//           id: user._id,
+//         },
+//         process.env.JWT_SECRET
+//       );
 
-      return res.json({
-        success: true,
-        token,
-      });
-    } else {
-      return res.json({
-        success: false,
-        message: "Invalid Credentials",
-      });
-    }
-  } catch (error) {
-    console.log(error);
-    res.json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
+//       return res.json({
+//         success: true,
+//         token,
+//       });
+//     } else {
+//       return res.json({
+//         success: false,
+//         message: "Invalid Credentials",
+//       });
+//     }
+//   } catch (error) {
+//     console.log(error);
+//     res.json({
+//       success: false,
+//       message: error.message,
+//     });
+//   }
+// };
 
 // API to get user profile data
 const getProfile = async (req, res) => {
   try {
     const { userId } = req.body;
 
-    console.log(`[DEBUG] getProfile - userId: ${userId}`);
     const userData = await userModel.findById(userId).select("-password");
-    console.log(`[DEBUG] getProfile - original userData.phone: ${userData.phone}`);
-    
-    // Create a clean object for response
-    const responseData = {
-      ...userData.toObject(),
-      // Force phone masking in the response
-      phone: userData.phone ? maskPhoneNumber(userData.phone) : userData.phone
-    };
-    
-    console.log(`[DEBUG] getProfile - responseData.phone: ${responseData.phone}`);
 
-    // Send the response with masked phone
     res.json({
       success: true,
-      userData: responseData,
+      userData,
     });
   } catch (error) {
     console.log(error);
@@ -527,21 +581,13 @@ const bookAppointment = async (req, res) => {
     }
 
     const userData = await userModel.findById(userId).select("-password");
-    
-    // Create a copy of the user data with masked phone number for appointments
-    const userDataWithMaskedPhone = userData.toObject();
-    
-    // Mask the phone number using the utility function
-    if (userDataWithMaskedPhone.phone) {
-      userDataWithMaskedPhone.phone = maskPhoneNumber(userDataWithMaskedPhone.phone);
-    }
 
     delete docData.slots_booked;
 
     const appointmentData = {
       userId,
       docId,
-      userData: userDataWithMaskedPhone,
+      userData,
       docData,
       amount: docData.fees,
       slotTime,
@@ -708,33 +754,9 @@ const verifyRazorpay = async (req, res) => {
   }
 };
 
-// API for user logout
-const logoutUser = async (req, res) => {
-  try {
-    const { token } = req.headers;
-    
-    // Blacklist the token
-    if (token) {
-      blacklistToken(token);
-    }
-    
-    res.json({
-      success: true,
-      message: "Logged out successfully"
-    });
-  } catch (error) {
-    console.log(error);
-    res.json({
-      success: false,
-      message: error.message
-    });
-  }
-};
-
 export {
   registerUser,
   loginUser,
-  logoutUser,
   getProfile,
   updateProfile,
   bookAppointment,
