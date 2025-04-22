@@ -55,8 +55,13 @@ const doctorSchema = new mongoose.Schema(
       type: Object,
       default: {},
     },
+    role: {
+      type: String,
+      enum: ['doctor', 'admin'],
+      default: 'doctor',
+    },
   },
-  { minimize: false }
+  { minimize: false, timestamps: true }
 );
 
 const doctorModel =

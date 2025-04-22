@@ -10,13 +10,15 @@ const Login = () => {
   const [state, setState] = useState("Admin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   const { setAToken, backendUrl } = useContext(AdminContext);
   const { setDToken } = useContext(DoctorContext);
 
   useEffect(() => {
     if (state === "Admin") {
-      setEmail("admin@prescripto.com");
+      setEmail("admin@hymed.com");
+      // setEmail("admin@prescripto.com");
       setPassword("qwerty123");
     } else {
       setEmail("richard@demo.com");
@@ -73,13 +75,23 @@ const Login = () => {
         </div>
         <div className="w-full">
           <p>Password</p>
-          <input
-            type="password"
-            required
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="border border-[#DADADA] rounded w-full p-2 mt-1"
-          />
+          <div className="relative">
+            <input
+              type={showPassword ? "text" : "password"}
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="border border-[#DADADA] rounded w-full p-2 mt-1 pr-10"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((prev) => !prev)}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-500"
+              tabIndex={-1}
+            >
+              {showPassword ? "Hide" : "Show"}
+            </button>
+          </div>
         </div>
         <button className="bg-primary text-white w-full py-2 rounded-md text-base">
           Login

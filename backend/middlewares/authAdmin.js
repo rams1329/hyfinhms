@@ -1,4 +1,5 @@
 import jwt from "jsonwebtoken";
+import doctorModel from "../models/doctorModel.js";
 
 // admin authentication middleware
 const authAdmin = async (req, res, next) => {
@@ -12,14 +13,24 @@ const authAdmin = async (req, res, next) => {
     }
 
     const token_decode = jwt.verify(atoken, process.env.JWT_SECRET);
-    if (token_decode !== process.env.ADMIN_EMAIL + process.env.ADMIN_PASSWORD) {
-      return res.json({
-        success: false,
-        message: "Not Authorized Login Again",
-      });
+
+    // Super admin
+    if (token_decode === process.env.ADMIN_EMAIL + process.env.ADMIN_PASSWORD) {
+      return next();
     }
 
-    next();
+    // Doctor admin
+    if (typeof token_decode === "object" && token_decode.id && token_decode.role === "admin") {
+      const doctor = await doctorModel.findById(token_decode.id);
+      if (doctor && doctor.role === "admin") {
+        return next();
+      }
+    }
+
+    return res.json({
+      success: false,
+      message: "Not Authorized Login Again",
+    });
   } catch (error) {
     console.log(error);
     res.json({

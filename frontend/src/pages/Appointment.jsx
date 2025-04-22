@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState } from "react";
+import React, { useContext, useEffect, useState, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import axios from "axios";
@@ -18,13 +18,21 @@ const Appointment = () => {
   const [docSlots, setDocSlots] = useState([]);
   const [slotIndex, setSlotIndex] = useState(0);
   const [slotTime, setSlotTime] = useState("");
+  const [isBooking, setIsBooking] = useState(false);
+  const [refreshInterval, setRefreshInterval] = useState(null);
 
-  const fetchDocInfo = async () => {
+  const fetchDocInfo = useCallback(async () => {
     const docInfo = doctors.find((doc) => doc._id === docId);
+    if (docInfo) {
     setDocInfo(docInfo);
-  };
+      return true;
+    }
+    return false;
+  }, [doctors, docId]);
 
-  const getAvailableSlots = async () => {
+  const getAvailableSlots = useCallback(async () => {
+    if (!docInfo) return;
+    
     setDocSlots([]);
     let today = new Date();
 
@@ -84,19 +92,46 @@ const Appointment = () => {
         setDocSlots((prev) => [...prev, timeSlots]);
       }
     }
-  };
-
-  useEffect(() => {
-    fetchDocInfo();
-  }, [doctors, docId]);
-
-  useEffect(() => {
-    getAvailableSlots();
   }, [docInfo]);
 
+  // Setup periodic refresh of doctor info and slots
   useEffect(() => {
-    console.log(docSlots);
-  }, [docSlots]);
+    const refreshData = async () => {
+      const success = await fetchDocInfo();
+      if (success) {
+        await getAvailableSlots();
+      }
+    };
+
+    // Initial fetch
+    refreshData();
+
+    // Set up interval for periodic refresh (every 10 seconds)
+    const interval = setInterval(refreshData, 10000);
+    setRefreshInterval(interval);
+
+    return () => {
+      if (refreshInterval) {
+        clearInterval(refreshInterval);
+      }
+    };
+  }, [fetchDocInfo, getAvailableSlots]);
+
+  // Manual refresh handler
+  const handleManualRefresh = async () => {
+    await getDoctorsData();
+    await fetchDocInfo();
+    await getAvailableSlots();
+    toast.info("Slots refreshed");
+  };
+
+  // Reset slot selection when slots change
+  useEffect(() => {
+    if (docSlots.length > 0 && (!docSlots[slotIndex] || docSlots[slotIndex].length === 0)) {
+      setSlotIndex(0);
+      setSlotTime("");
+    }
+  }, [docSlots, slotIndex]);
 
   const bookAppointment = async () => {
     if (!token) {
@@ -104,7 +139,13 @@ const Appointment = () => {
       return navigate("/login");
     }
 
+    if (!slotTime) {
+      toast.warn("Please select a time slot");
+      return;
+    }
+
     try {
+      setIsBooking(true);
       const date = docSlots[slotIndex][0].datetime;
 
       let day = date.getDate();
@@ -129,14 +170,28 @@ const Appointment = () => {
 
       if (data.success) {
         toast.success(data.message);
-        getDoctorsData();
+        // Refresh doctor data and slots before navigating
+        await getDoctorsData();
+        await fetchDocInfo();
+        await getAvailableSlots();
         navigate("/my-appointments");
       } else {
+        if (data.message.includes("already booked") || data.message.includes("not available")) {
+          toast.error("This slot was just booked by someone else. Please select another slot.");
+          // Refresh available slots immediately
+          await getDoctorsData();
+          await fetchDocInfo();
+          await getAvailableSlots();
+          setSlotTime("");
+      } else {
         toast.error(data.message);
+        }
       }
     } catch (error) {
       console.log(error);
-      toast.error(error.message);
+      toast.error("Failed to book appointment. Please try again.");
+    } finally {
+      setIsBooking(false);
     }
   };
 
@@ -169,10 +224,7 @@ const Appointment = () => {
 
             {/* -----Doctor About----- */}
             <div>
-              <p
-                className="flex items-center gap-1
-               text-sm font-medium text-gray-900 mt-3"
-              >
+              <p className="flex items-center gap-1 text-sm font-medium text-gray-900 mt-3">
                 About <img src={assets.info_icon} alt="" className="w-3.5" />
               </p>
               <p className="text-sm text-gray-500 max-w-[700px] mt-1">
@@ -192,13 +244,24 @@ const Appointment = () => {
 
         {/* -----Booking Slots----- */}
         <div className="sm:ml-72 sm:pl-4 mt-4 font-medium text-gray-700">
+          <div className="flex items-center gap-4 mb-2">
           <p>Booking slots</p>
+            <button
+              onClick={handleManualRefresh}
+              className="text-xs px-3 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-all"
+            >
+              Refresh Slots
+            </button>
+          </div>
           <div className="flex gap-3 items-center w-full overflow-x-scroll mt-4">
-            {docSlots.length &&
+            {docSlots.length > 0 ? (
               docSlots.map((item, index) => (
                 <div
                   key={index}
-                  onClick={() => setSlotIndex(index)}
+                  onClick={() => {
+                    setSlotIndex(index);
+                    setSlotTime("");
+                  }}
                   className={`text-center py-6 min-w-16 rounded-full cursor-pointer ${
                     slotIndex === index
                       ? "bg-primary text-white"
@@ -208,12 +271,14 @@ const Appointment = () => {
                   <p>{item[0] && daysOfWeek[item[0].datetime.getDay()]}</p>
                   <p>{item[0] && item[0].datetime.getDate()}</p>
                 </div>
-              ))}
+              ))
+            ) : (
+              <p className="text-gray-500">No available slots</p>
+            )}
           </div>
 
           <div className="flex items-center gap-3 w-full overflow-x-scroll mt-4">
-            {docSlots.length &&
-              docSlots[slotIndex].map((item, index) => (
+            {docSlots.length > 0 && docSlots[slotIndex]?.map((item, index) => (
                 <p
                   key={index}
                   onClick={() => setSlotTime(item.time)}
@@ -230,9 +295,12 @@ const Appointment = () => {
 
           <button
             onClick={bookAppointment}
-            className="bg-primary text-white text-sm font-light px-14 py-3 rounded-full my-6"
+            disabled={isBooking || !slotTime}
+            className={`bg-primary text-white text-sm font-light px-14 py-3 rounded-full my-6 ${
+              (isBooking || !slotTime) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-primary-dark'
+            }`}
           >
-            Book an appointment
+            {isBooking ? "Booking..." : "Book an appointment"}
           </button>
         </div>
 

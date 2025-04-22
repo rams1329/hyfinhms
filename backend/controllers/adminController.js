@@ -102,22 +102,39 @@ const addDoctor = async (req, res) => {
 const loginAdmin = async (req, res) => {
   try {
     const { email, password } = req.body;
+    // Super admin login
     if (
       email === process.env.ADMIN_EMAIL &&
       password === process.env.ADMIN_PASSWORD
     ) {
       const token = jwt.sign(email + password, process.env.JWT_SECRET);
-
       return res.json({
         success: true,
         token,
       });
-    } else {
-      return res.json({
-        success: false,
-        message: "Invalid credentials",
-      });
     }
+
+    // Doctor admin login
+    const doctor = await doctorModel.findOne({ email });
+    if (doctor && doctor.role === "admin") {
+      const isMatch = await bcrypt.compare(password, doctor.password);
+      if (isMatch) {
+        const token = jwt.sign(
+          { id: doctor._id, role: "admin" },
+          process.env.JWT_SECRET
+        );
+        return res.json({
+          success: true,
+          token,
+        });
+      }
+    }
+
+    // If neither, invalid credentials
+    return res.json({
+      success: false,
+      message: "Invalid credentials",
+    });
   } catch (error) {
     console.log(error);
     res.json({
@@ -228,6 +245,44 @@ const adminDashboard = async (req, res) => {
   }
 };
 
+// API to promote doctor to admin
+const promoteDoctorToAdmin = async (req, res) => {
+  try {
+    const { doctorId } = req.body;
+    const doctor = await doctorModel.findById(doctorId);
+    if (!doctor) {
+      return res.json({ success: false, message: 'Doctor not found' });
+    }
+    if (doctor.role === 'admin') {
+      return res.json({ success: false, message: 'Doctor is already an admin' });
+    }
+    doctor.role = 'admin';
+    await doctor.save();
+    res.json({ success: true, message: 'Doctor promoted to admin' });
+  } catch (error) {
+    res.json({ success: false, message: error.message });
+  }
+};
+
+// API to demote admin to doctor
+const demoteDoctorToDoctor = async (req, res) => {
+  try {
+    const { doctorId } = req.body;
+    const doctor = await doctorModel.findById(doctorId);
+    if (!doctor) {
+      return res.json({ success: false, message: 'Doctor not found' });
+    }
+    if (doctor.role === 'doctor') {
+      return res.json({ success: false, message: 'Doctor is already a doctor' });
+    }
+    doctor.role = 'doctor';
+    await doctor.save();
+    res.json({ success: true, message: 'Doctor demoted to doctor' });
+  } catch (error) {
+    res.json({ success: false, message: error.message });
+  }
+};
+
 export {
   addDoctor,
   loginAdmin,
@@ -235,4 +290,6 @@ export {
   appointmentsAdmin,
   appointmentCancel,
   adminDashboard,
+  promoteDoctorToAdmin,
+  demoteDoctorToDoctor
 };

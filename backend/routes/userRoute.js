@@ -3,6 +3,7 @@ import express from "express";
 import {
   registerUser,
   loginUser,
+  logoutUser,
   getProfile,
   updateProfile,
   bookAppointment,
@@ -38,5 +39,8 @@ userRouter.get("/appointments", authUser, listAppointment);
 userRouter.post("/cancel-appointment", authUser, cancelAppointment);
 userRouter.post("/payment-razorpay", authUser, paymentRazorpay);
 userRouter.post("/verify-razorpay", authUser, verifyRazorpay);
+userRouter.post("/logout", logoutUser);
+// Add the new endpoint
+
 
 export default userRouter;

@@ -45,7 +45,13 @@ const appointmentSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
-});
+}, { timestamps: true });
+
+// Add compound index to prevent double booking
+appointmentSchema.index(
+  { docId: 1, slotDate: 1, slotTime: 1 },
+  { unique: true, partialFilterExpression: { cancelled: false } }
+);
 
 const appointmentModel =
   mongoose.model.appointment ||

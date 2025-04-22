@@ -1,16 +1,26 @@
 import React, { useContext, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
+import axios from "axios";
 
 import { assets } from "../assets/assets_frontend/assets";
 import { AppContext } from "../context/AppContext";
 
 const Navbar = () => {
   const navigate = useNavigate();
-  const { token, setToken, userData } = useContext(AppContext);
+  const { token, setToken, userData, backendUrl } = useContext(AppContext);
 
   const [showMenu, setShowMenu] = useState(false);
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      if (token) {
+        await axios.post(`${backendUrl}/api/user/logout`, {}, {
+          headers: { token }
+        });
+      }
+    } catch (err) {
+      // Optionally handle error
+    }
     setToken(false);
     localStorage.removeItem("token");
     navigate("/");
@@ -78,8 +88,8 @@ const Navbar = () => {
             </button>
             <button
               onClick={() => {
+                window.dispatchEvent(new Event("showSignUp"));
                 navigate("/login");
-                localStorage.setItem("loginState", "Sign Up");
               }}
               className="bg-primary text-white px-6 py-2.5 rounded-full font-light hidden md:block"
             >
@@ -124,6 +134,29 @@ const Navbar = () => {
             <NavLink to={"/contact"} onClick={() => setShowMenu(false)}>
               <p className="px-4 py-2 rounded inline-block">CONTACT</p>
             </NavLink>
+            {!token && (
+              <>
+                <button
+                  onClick={() => {
+                    setShowMenu(false);
+                    navigate("/login");
+                  }}
+                  className="text-primary border border-primary px-6 py-2.5 rounded-full font-light w-full mt-2"
+                >
+                  Login
+                </button>
+                <button
+                  onClick={() => {
+                    setShowMenu(false);
+                    window.dispatchEvent(new Event("showSignUp"));
+                    navigate("/login");
+                  }}
+                  className="bg-primary text-white px-6 py-2.5 rounded-full font-light w-full mt-2"
+                >
+                  Create account
+                </button>
+              </>
+            )}
           </ul>
         </div>
       </div>

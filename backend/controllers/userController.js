@@ -4,11 +4,13 @@ import jwt from "jsonwebtoken";
 import { v2 as cloudinary } from "cloudinary";
 import razorpay from "razorpay";
 import otpGenerator from "otp-generator";
+import mongoose from "mongoose";
 
 import { sendOTPEmail } from "../utils/sendEmail.js";
 import userModel from "../models/userModel.js";
 import doctorModel from "../models/doctorModel.js";
 import appointmentModel from "../models/appointmentModel.js";
+import sessionModel from "../models/sessionModel.js";
 
 
 // API to send OTP for forgot password
@@ -291,11 +293,19 @@ export const verifyOTP = async (req, res) => {
 
     // Generate JWT token
     const token = jwt.sign(
-      {
-        id: user._id,
-      },
-      process.env.JWT_SECRET
+      { id: user._id },
+      process.env.JWT_SECRET,
+      { expiresIn: "10m" }
     );
+
+    // Create a session for the user (auto-login after OTP)
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes expiry
+    await sessionModel.create({
+      userId: user._id,
+      token,
+      expiresAt,
+    });
+    await userModel.updateOne({ _id: user._id }, { isLoggedIn: true });
 
     res.json({
       success: true,
@@ -321,6 +331,22 @@ const loginUser = async (req, res) => {
         success: false,
         message: "User does not exist"
       });
+    }
+
+    // Check if user is already logged in
+    if (user.isLoggedIn) {
+      // Check if there is a valid session for this user
+      const activeSession = await sessionModel.findOne({ userId: user._id, expiresAt: { $gt: new Date() } });
+      if (activeSession) {
+        return res.json({
+          success: false,
+          message: "User is already logged in from another device or browser. Please logout first."
+        });
+      } else {
+        // Session expired, reset isLoggedIn
+        await userModel.updateOne({ _id: user._id }, { isLoggedIn: false });
+        user.isLoggedIn = false;
+      }
     }
 
     // Check if account is locked
@@ -361,10 +387,26 @@ const loginUser = async (req, res) => {
       }
     });
 
+    // Remove any existing session for this user (single session per user)
+    await sessionModel.deleteMany({ userId: user._id });
+
+    // Generate JWT token
     const token = jwt.sign(
       { id: user._id },
-      process.env.JWT_SECRET
+      process.env.JWT_SECRET,
+      { expiresIn: "10m" }
     );
+
+    // Create a new session with expiry (10 minutes)
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    await sessionModel.create({
+      userId: user._id,
+      token,
+      expiresAt,
+    });
+
+    // Set isLoggedIn to true
+    await userModel.updateOne({ _id: user._id }, { isLoggedIn: true });
 
     return res.json({
       success: true,
@@ -376,6 +418,26 @@ const loginUser = async (req, res) => {
       success: false,
       message: error.message,
     });
+  }
+};
+
+// Logout logic for session collection
+const logoutUser = async (req, res) => {
+  try {
+    // Get token from headers
+    const { token } = req.headers;
+    if (!token) {
+      return res.json({ success: false, message: "No token provided" });
+    }
+    // Remove the session for this token
+    const session = await sessionModel.findOneAndDelete({ token });
+    if (session) {
+      // Set isLoggedIn to false for the user
+      await userModel.updateOne({ _id: session.userId }, { isLoggedIn: false });
+    }
+    return res.json({ success: true, message: "Logged out successfully" });
+  } catch (error) {
+    res.json({ success: false, message: error.message });
   }
 };
 
@@ -426,6 +488,15 @@ const registerUser = async (req, res) => {
       },
       process.env.JWT_SECRET
     );
+
+    // Create a session for the new user (auto-login)
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes expiry
+    await sessionModel.create({
+      userId: user._id,
+      token,
+      expiresAt,
+    });
+    await userModel.updateOne({ _id: user._id }, { isLoggedIn: true });
 
     res.json({
       success: true,
@@ -549,14 +620,38 @@ const updateProfile = async (req, res) => {
   }
 };
 
-// API to book appointment
+//API to book appointment
 const bookAppointment = async (req, res) => {
-  try {
-    const { userId, docId, slotDate, slotTime } = req.body;
+  // Start a MongoDB session for transaction
+  const session = await mongoose.startSession();
+  session.startTransaction();
 
-    const docData = await doctorModel.findById(docId).select("-password");
+  try {
+    const { userId, docId, slotDate } = req.body;
+    let slotTime = req.body.slotTime;
+
+    // Normalize slotTime to uppercase and trimmed
+    slotTime = slotTime.trim().toUpperCase();
+
+    console.log(`Attempting to book appointment for user ${userId} with doctor ${docId} on ${slotDate} at ${slotTime}`);
+
+    // Lock the doctor document for update
+    const docData = await doctorModel.findById(docId)
+      .select("-password")
+      .session(session);
+
+    if (!docData) {
+      console.log("Doctor not found");
+      await session.abortTransaction();
+      return res.json({
+        success: false,
+        message: "Doctor not found",
+      });
+    }
 
     if (!docData.available) {
+      console.log("Doctor not available");
+      await session.abortTransaction();
       return res.json({
         success: false,
         message: "Doctor not available",
@@ -565,56 +660,113 @@ const bookAppointment = async (req, res) => {
 
     let slots_booked = docData.slots_booked;
 
-    // checking for slot availability
-    if (slots_booked[slotDate]) {
-      if (slots_booked[slotDate].includes(slotTime)) {
+    // Check for slot availability
+    if (slots_booked[slotDate]?.map(t => t.trim().toUpperCase()).includes(slotTime)) {
+      console.log("Slot not available in slots_booked");
+      await session.abortTransaction();
         return res.json({
           success: false,
           message: "Slot not available",
         });
-      } else {
-        slots_booked[slotDate].push(slotTime);
-      }
-    } else {
-      slots_booked[slotDate] = [];
-      slots_booked[slotDate].push(slotTime);
     }
 
-    const userData = await userModel.findById(userId).select("-password");
+    // Check for existing non-cancelled appointment
+    const existingAppointment = await appointmentModel.findOne({
+      docId,
+      slotDate,
+      slotTime,
+      cancelled: false
+    }).session(session);
 
-    delete docData.slots_booked;
+    if (existingAppointment) {
+      console.log("Slot already booked in database");
+      await session.abortTransaction();
+      return res.json({
+        success: false,
+        message: "Slot already booked",
+      });
+    }
+
+    // Update slots_booked
+    if (!slots_booked[slotDate]) {
+      slots_booked[slotDate] = [];
+    }
+      slots_booked[slotDate].push(slotTime);
+
+    const userData = await userModel.findById(userId)
+      .select("-password")
+      .session(session);
+
+    if (!userData) {
+      console.log("User not found");
+      await session.abortTransaction();
+      return res.json({
+        success: false,
+        message: "User not found",
+      });
+    }
 
     const appointmentData = {
       userId,
       docId,
       userData,
-      docData,
+      docData: {
+        ...docData.toObject(),
+        slots_booked: undefined // Remove slots_booked from docData
+      },
       amount: docData.fees,
       slotTime,
       slotDate,
       date: Date.now(),
     };
 
+    // Create and save new appointment
     const newAppointment = new appointmentModel(appointmentData);
-    await newAppointment.save();
+    await newAppointment.save({ session });
 
-    // save new slots data in docData
-    await doctorModel.findByIdAndUpdate(docId, {
-      slots_booked,
-    });
+    // Update doctor's slots
+    await doctorModel.findByIdAndUpdate(
+      docId,
+      { slots_booked },
+      { session, new: true }
+    );
 
+    // Commit the transaction
+    await session.commitTransaction();
+
+    console.log("Appointment booked successfully");
     res.json({
       success: true,
-      message: "Appointment Booked",
+      message: "Appointment Booked Successfully",
     });
   } catch (error) {
-    console.log(error);
+    // If any error occurs, abort transaction
+    await session.abortTransaction();
+    console.log("Error during booking:", error);
+
+    // Check if it's a duplicate key error (concurrent booking attempt)
+    if (error.code === 11000) {
+      console.log("Duplicate key error: This slot was just booked by someone else");
+      return res.json({
+        success: false,
+        message: "This slot was just booked by someone else",
+      });
+    }
+
     res.json({
       success: false,
-      message: error.message,
+      message: error.message || "Failed to book appointment",
     });
+  } finally {
+    session.endSession();
   }
 };
+
+
+
+
+
+
 
 // API to get user appointments for frontend my-appointments page
 const listAppointment = async (req, res) => {
@@ -757,11 +909,12 @@ const verifyRazorpay = async (req, res) => {
 export {
   registerUser,
   loginUser,
+  logoutUser,
   getProfile,
   updateProfile,
   bookAppointment,
   listAppointment,
   cancelAppointment,
   paymentRazorpay,
-  verifyRazorpay,
+  verifyRazorpay
 };

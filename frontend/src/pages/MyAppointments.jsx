@@ -3,8 +3,8 @@ import axios from "axios";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 import * as XLSX from 'xlsx';
-import { jsPDF } from 'jspdf';
-import 'jspdf-autotable';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 import { AppContext } from "../context/AppContext";
 
@@ -173,41 +173,47 @@ const MyAppointments = () => {
       return;
     }
 
-    // Create new PDF document
-    const doc = new jsPDF();
-    
-    // Add title
-    doc.setFontSize(16);
-    doc.text("My Appointments", 14, 15);
-    
-    // Prepare table data
-    const tableData = appointments.map((appointment, index) => [
-      index + 1,
-      appointment?.docData?.name || "N/A",
-      appointment?.docData?.speciality || "N/A",
-      appointment?.slotDate ? slotDateFormat(appointment.slotDate) : "N/A",
-      appointment?.slotTime || "N/A",
-      appointment?.cancelled ? "Cancelled" : 
-      appointment?.isCompleted ? "Completed" : 
-      appointment?.payment ? "Paid" : "Payment Pending"
-    ]);
-    
-    // Set column headers
-    const headers = [["No.", "Doctor Name", "Specialty", "Date", "Time", "Status"]];
-    
-    // Generate table
-    doc.autoTable({
-      head: headers,
-      body: tableData,
-      startY: 20,
-      theme: 'grid',
-      styles: { fontSize: 8 },
-      headStyles: { fillColor: [66, 66, 255] }
-    });
-    
-    // Save PDF
-    doc.save("my_appointments.pdf");
-    toast.success("Appointments downloaded as PDF");
+    try {
+      // Create new PDF document
+      const doc = new jsPDF();
+      
+      // Add title
+      doc.setFontSize(16);
+      doc.text("My Appointments", 14, 15);
+      
+      // Prepare table data
+      const tableData = appointments.map((appointment, index) => [
+        index + 1,
+        appointment?.docData?.name || "N/A",
+        appointment?.docData?.speciality || "N/A",
+        appointment?.slotDate ? slotDateFormat(appointment.slotDate) : "N/A",
+        appointment?.slotTime || "N/A",
+        appointment?.cancelled ? "Cancelled" : 
+        appointment?.isCompleted ? "Completed" : 
+        appointment?.payment ? "Paid" : "Payment Pending"
+      ]);
+      
+      // Set column headers
+      const headers = [["No.", "Doctor Name", "Specialty", "Date", "Time", "Status"]];
+      
+      // Generate table using autoTable
+      autoTable(doc, {
+        head: headers,
+        body: tableData,
+        startY: 25,
+        theme: 'grid',
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [66, 66, 255] },
+        margin: { top: 20 }
+      });
+      
+      // Save PDF
+      doc.save("my_appointments.pdf");
+      toast.success("Appointments downloaded as PDF");
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      toast.error("Failed to generate PDF");
+    }
   };
 
   useEffect(() => {
@@ -255,8 +261,8 @@ const MyAppointments = () => {
               </p>
               <p>{item?.docData?.speciality}</p>
               <p className="text-zinc-700 font-medium mt-1">Address:</p>
-              <p className="text-xs">{item?.docData?.address.line1}</p>
-              <p className="text-xs">{item?.docData?.address.line2}</p>
+              <p className="text-xs">{item?.docData?.address?.line1 || "N/A"}</p>
+              <p className="text-xs">{item?.docData?.address?.line2 || "N/A"}</p>
               <p className="text-xs mt-1">
                 <span className="text-sm text-neutral-700 font-medium">
                   Date & Time:

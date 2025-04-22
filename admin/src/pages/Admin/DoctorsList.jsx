@@ -3,7 +3,7 @@ import React, { useContext, useEffect, useState } from "react";
 import { AdminContext } from "../../context/AdminContext";
 
 const DoctorsList = () => {
-  const { doctors, getAllDoctors, aToken, changeAvailability } =
+  const { doctors, getAllDoctors, aToken, changeAvailability, promoteDoctor, demoteDoctor } =
     useContext(AdminContext);
   
   const [filteredDoctors, setFilteredDoctors] = useState([]);
@@ -142,6 +142,27 @@ const DoctorsList = () => {
                     className="cursor-pointer"
                   />
                   <p>Available</p>
+                </div>
+                <div className="mt-2 flex items-center gap-2">
+                  <span className={`px-2 py-1 rounded text-xs font-semibold ${item.role === 'admin' ? 'bg-yellow-400 text-white' : 'bg-blue-200 text-blue-800'}`}>
+                    {item.role === 'admin' ? 'Admin' : 'Doctor'}
+                  </span>
+                  {item.role !== 'admin' && (
+                    <button
+                      onClick={() => promoteDoctor(item._id)}
+                      className="ml-2 px-2 py-1 bg-yellow-400 text-white rounded text-xs font-semibold hover:bg-yellow-500 transition"
+                    >
+                      Promote to Admin
+                    </button>
+                  )}
+                  {item.role === 'admin' && (
+                    <button
+                      onClick={() => demoteDoctor(item._id)}
+                      className="ml-2 px-2 py-1 bg-blue-200 text-blue-800 rounded text-xs font-semibold hover:bg-blue-300 transition"
+                    >
+                      Demote to Doctor
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

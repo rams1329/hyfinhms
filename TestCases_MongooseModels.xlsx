@@ -1,0 +1,33 @@
+Test Case ID,Model,Scenario,Input Data,Expected Result,Notes
+TC001,User,Create valid user,"{name: 'John', email: 'john@example.com', password: 'pass1234'}","User created, createdAt/updatedAt set, _id generated",-
+TC002,User,Create user missing required field,"{email: 'john@example.com', password: 'pass1234'}","Validation error: name required",-
+TC003,User,Create user with duplicate email,"{name: 'Jane', email: 'john@example.com', password: 'pass5678'}","Validation error: email must be unique",-
+TC004,User,Read user by ID,"{_id: 'validObjectId'}","User object returned",-
+TC005,User,Update user name,"{_id: 'validObjectId', name: 'Johnny'}","User updated, updatedAt changed",-
+TC006,User,Update user with invalid field,"{_id: 'validObjectId', age: 30}","No effect or error (age not in schema)",-
+TC007,User,Delete user by ID,"{_id: 'validObjectId'}","User deleted",-
+TC008,User,Check timestamps,"Create and update user","createdAt != updatedAt after update",-
+TC009,User,Login attempts lock,"5 failed logins","Account locked, lockUntil set",-
+TC010,User,Reset login attempts,"Successful login after lockUntil","loginAttempts reset to 0",-
+TC011,Doctor,Create valid doctor,"{name: 'Dr. Smith', email: 'smith@doc.com', password: 'docpass', ...}","Doctor created, createdAt/updatedAt set",-
+TC012,Doctor,Create doctor missing required,"{email: 'smith@doc.com', password: 'docpass'}","Validation error: name required",-
+TC013,Doctor,Create doctor duplicate email,"{name: 'Dr. Who', email: 'smith@doc.com', password: 'pass'}","Validation error: email unique",-
+TC014,Doctor,Read doctor by ID,"{_id: 'validObjectId'}","Doctor object returned",-
+TC015,Doctor,Update doctor speciality,"{_id: 'validObjectId', speciality: 'Cardiology'}","Doctor updated, updatedAt changed",-
+TC016,Doctor,Delete doctor by ID,"{_id: 'validObjectId'}","Doctor deleted",-
+TC017,Doctor,Check timestamps,"Create and update doctor","createdAt != updatedAt after update",-
+TC018,Appointment,Create valid appointment,"{userId: 'uid', docId: 'did', slotDate: '2024-06-01', slotTime: '10:00', ...}","Appointment created, createdAt/updatedAt set",-
+TC019,Appointment,Create appointment missing required,"{userId: 'uid', slotDate: '2024-06-01'}","Validation error: docId required",-
+TC020,Appointment,Create double booking,"Same docId, slotDate, slotTime, cancelled: false","Validation error: duplicate key",-
+TC021,Appointment,Read appointment by ID,"{_id: 'validObjectId'}","Appointment object returned",-
+TC022,Appointment,Update appointment status,"{_id: 'validObjectId', isCompleted: true}","Appointment updated, updatedAt changed",-
+TC023,Appointment,Delete appointment by ID,"{_id: 'validObjectId'}","Appointment deleted",-
+TC024,Appointment,Check timestamps,"Create and update appointment","createdAt != updatedAt after update",-
+TC025,Session,Create valid session,"{userId: 'uid', token: 'jwt', expiresAt: 'futureDate'}","Session created, createdAt/updatedAt set",-
+TC026,Session,Create session missing required,"{token: 'jwt', expiresAt: 'futureDate'}","Validation error: userId required",-
+TC027,Session,Read session by token,"{token: 'jwt'}","Session object returned",-
+TC028,Session,Session expiry,"expiresAt < now","Session auto-deleted by TTL",-
+TC029,Session,Check timestamps,"Create and update session","createdAt != updatedAt after update",-
+TC030,General,Invalid ObjectId on read/update/delete,"{_id: 'invalid'}","CastError: ObjectId",-
+TC031,General,Large input data,"Very long strings in fields","Validation error or success if within limits",-
+TC032,General,Wrong data types,"{name: 123, email: true}","Validation error: type mismatch",- 

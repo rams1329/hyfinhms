@@ -18,6 +18,7 @@ const AddDoctor = () => {
   const [degree, setDegree] = useState("");
   const [address1, setAddress1] = useState("");
   const [address2, setAddress2] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   const { backendUrl, aToken } = useContext(AdminContext);
 
@@ -144,14 +145,24 @@ const AddDoctor = () => {
             </div>
             <div className="flex-1 flex flex-col gap-1">
               <p>Doctor Password</p>
-              <input
-                type="password"
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="border rounded px-3 py-2"
-              />
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  className="border rounded px-3 py-2 w-full pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500"
+                  tabIndex={-1}
+                >
+                  {showPassword ? "Hide" : "Show"}
+                </button>
+              </div>
             </div>
             <div className="flex-1 flex flex-col gap-1">
               <p>Experience</p>
