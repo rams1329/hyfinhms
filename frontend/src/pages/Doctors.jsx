@@ -69,6 +69,10 @@ const Doctors = () => {
   // Change page
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
+  const handleRefresh = () => {
+    applyFilter();
+  };
+
   return (
     <div>
       <p className="text-gray-600">Browse through our doctors.</p>
@@ -101,6 +105,12 @@ const Doctors = () => {
             <option value="price-high">Price (High to Low)</option>
           </select>
         </div>
+        <button
+          onClick={handleRefresh}
+          className="px-4 py-2 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-all mt-2 sm:mt-0"
+        >
+          Refresh
+        </button>
       </div>
 
       {/* Custom pagination control */}

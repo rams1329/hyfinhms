@@ -13,6 +13,7 @@ const MyAppointments = () => {
   const { backendUrl, token, getDoctorsData } = useContext(AppContext);
 
   const [appointments, setAppointments] = useState([]);
+  const [loading, setLoading] = useState(false);
   const months = [
     "",
     "Jan",
@@ -36,12 +37,12 @@ const MyAppointments = () => {
 
   const getUserAppointments = async () => {
     try {
+      setLoading(true);
       const { data } = await axios.get(`${backendUrl}/api/user/appointments`, {
         headers: {
           token: token,
         },
       });
-
       if (data.success) {
         setAppointments(data.appointments.reverse());
         console.log(data.appointments);
@@ -49,6 +50,8 @@ const MyAppointments = () => {
     } catch (error) {
       console.log(error);
       toast.error(error.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -226,8 +229,7 @@ const MyAppointments = () => {
     <div>
       <div className="flex justify-between items-center pb-3 mt-12 border-b">
         <p className="font-medium text-zinc-700">My appointments</p>
-        
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
           <button 
             onClick={downloadAsExcel}
             className="text-sm bg-green-600 text-white px-3 py-2 rounded hover:bg-green-700 transition-all duration-300"
@@ -239,6 +241,16 @@ const MyAppointments = () => {
             className="text-sm bg-red-600 text-white px-3 py-2 rounded hover:bg-red-700 transition-all duration-300"
           >
             Download as PDF
+          </button>
+          <button
+            onClick={getUserAppointments}
+            className="text-sm bg-blue-600 text-white px-3 py-2 rounded hover:bg-blue-700 transition-all duration-300 flex items-center gap-2"
+            disabled={loading}
+          >
+            {loading && (
+              <svg className="w-4 h-4 animate-spin text-white" fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg>
+            )}
+            Refresh
           </button>
         </div>
       </div>

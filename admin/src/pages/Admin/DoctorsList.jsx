@@ -11,8 +11,11 @@ const DoctorsList = () => {
   const [sortOption, setSortOption] = useState("default");
   const [specialtyFilter, setSpecialtyFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
-  const doctorsPerPage = 8;
-  
+  // const doctorsPerPage = 8; // Remove this, use manualDoctorsPerPage instead
+
+  // Add state for manual doctors per page
+  const [manualDoctorsPerPage, setManualDoctorsPerPage] = useState(8);
+
   // Get unique specialties for filter dropdown
   const specialties = doctors ? ["all", ...new Set(doctors.map(doc => doc.speciality))] : ["all"];
 
@@ -59,17 +62,54 @@ const DoctorsList = () => {
   };
   
   // Pagination logic
-  const indexOfLastDoctor = currentPage * doctorsPerPage;
-  const indexOfFirstDoctor = indexOfLastDoctor - doctorsPerPage;
+  const indexOfLastDoctor = currentPage * manualDoctorsPerPage;
+  const indexOfFirstDoctor = indexOfLastDoctor - manualDoctorsPerPage;
   const currentDoctors = filteredDoctors.slice(indexOfFirstDoctor, indexOfLastDoctor);
-  const totalPages = Math.ceil(filteredDoctors.length / doctorsPerPage);
+  const totalPages = Math.ceil(filteredDoctors.length / manualDoctorsPerPage);
   
   // Change page
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
+  // Handler for manual entry
+  const handleManualDoctorsChange = (e) => {
+    setManualDoctorsPerPage(Number(e.target.value));
+  };
+  const applyManualDoctorsPerPage = () => {
+    if (manualDoctorsPerPage > 0) {
+      setCurrentPage(1);
+    }
+  };
+
+  // Handler for refresh
+  const handleRefresh = () => {
+    if (aToken) getAllDoctors();
+  };
+
   return (
     <div className="m-5 overflow-hidden">
       <h1 className="text-lg font-medium">All Doctors</h1>
+      {/* Manual entry and refresh controls */}
+      <div className="flex flex-wrap gap-4 items-center my-4">
+        
+        <div className="flex items-center gap-2">
+          <label htmlFor="manualDoctorsPerPage" className="text-sm text-gray-600">Show:</label>
+          <input
+            id="manualDoctorsPerPage"
+            type="number"
+            min="1"
+            max="100"
+            value={manualDoctorsPerPage}
+            onChange={handleManualDoctorsChange}
+            className="w-16 px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          />
+          <button
+            onClick={applyManualDoctorsPerPage}
+            className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-md hover:bg-indigo-200"
+          >
+            Apply
+          </button>
+        </div>
+      </div>
       
       {/* Search, Filter and Sort Controls */}
       <div className="my-4 grid grid-cols-1 md:grid-cols-3 gap-4">

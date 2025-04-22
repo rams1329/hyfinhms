@@ -1,4 +1,4 @@
-import React, { useContext, useEffect } from "react";
+import React, { useContext, useEffect, useState } from "react";
 
 import { DoctorContext } from "../../context/DoctorContext";
 import { assets } from "../../assets/assets";
@@ -15,11 +15,19 @@ const DoctorDashboard = () => {
   } = useContext(DoctorContext);
   const { slotDateFormat, currency } = useContext(AppContext);
 
+  const [refreshing, setRefreshing] = useState(false);
+
   useEffect(() => {
     if (dToken) {
       getDashData();
     }
   }, [dToken]);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await getDashData();
+    setRefreshing(false);
+  };
 
   return (
     dashData && (
@@ -61,6 +69,16 @@ const DoctorDashboard = () => {
           <div className="flex items-center gap-2.5 px-4 py-4 mt-10 rounded-t border">
             <img src={assets.list_icon} alt="" />
             <p className="font-semibold">Latest Bookings</p>
+            <button
+              onClick={handleRefresh}
+              className="ml-auto flex items-center gap-1 px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-all"
+              disabled={refreshing}
+            >
+              {refreshing && (
+                <svg className="w-4 h-4 animate-spin text-blue-700" fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg>
+              )}
+              Refresh
+            </button>
           </div>
 
           <div className="pt-4 border border-t-0">

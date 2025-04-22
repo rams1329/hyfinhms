@@ -11,6 +11,7 @@ import userModel from "../models/userModel.js";
 import doctorModel from "../models/doctorModel.js";
 import appointmentModel from "../models/appointmentModel.js";
 import sessionModel from "../models/sessionModel.js";
+import { encrypt, decrypt } from "../utils/crypto.js";
 
 
 // API to send OTP for forgot password
@@ -295,11 +296,11 @@ export const verifyOTP = async (req, res) => {
     const token = jwt.sign(
       { id: user._id },
       process.env.JWT_SECRET,
-      { expiresIn: "10m" }
+      { expiresIn: "30m" }
     );
 
     // Create a session for the user (auto-login after OTP)
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes expiry
+    const expiresAt = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes expiry
     await sessionModel.create({
       userId: user._id,
       token,
@@ -394,11 +395,11 @@ const loginUser = async (req, res) => {
     const token = jwt.sign(
       { id: user._id },
       process.env.JWT_SECRET,
-      { expiresIn: "10m" }
+      { expiresIn: "30m" }
     );
 
     // Create a new session with expiry (10 minutes)
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
     await sessionModel.create({
       userId: user._id,
       token,
@@ -490,7 +491,7 @@ const registerUser = async (req, res) => {
     );
 
     // Create a session for the new user (auto-login)
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes expiry
+    const expiresAt = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes expiry
     await sessionModel.create({
       userId: user._id,
       token,
@@ -560,9 +561,24 @@ const getProfile = async (req, res) => {
 
     const userData = await userModel.findById(userId).select("-password");
 
+    // Decrypt and mask phone number
+    let maskedPhone = userData.phone;
+    try {
+      const decryptedPhone = decrypt(userData.phone);
+      if (decryptedPhone && decryptedPhone.length >= 6) {
+        maskedPhone = decryptedPhone.slice(0, 2) + "####" + decryptedPhone.slice(-4);
+      } else {
+        maskedPhone = decryptedPhone;
+      }
+    } catch (e) {
+      // fallback: show as is if decryption fails
+    }
+    const userDataObj = userData.toObject();
+    userDataObj.phone = maskedPhone;
+
     res.json({
       success: true,
-      userData,
+      userData: userDataObj,
     });
   } catch (error) {
     console.log(error);
@@ -587,9 +603,12 @@ const updateProfile = async (req, res) => {
       });
     }
 
+    // Encrypt phone before saving
+    const encryptedPhone = encrypt(phone);
+
     await userModel.findByIdAndUpdate(userId, {
       name,
-      phone,
+      phone: encryptedPhone,
       address: JSON.parse(address),
       dob,
       gender,

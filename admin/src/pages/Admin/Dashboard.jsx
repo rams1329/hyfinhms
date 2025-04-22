@@ -15,6 +15,7 @@ const Dashboard = () => {
   const [doctorStats, setDoctorStats] = useState([]);
   const [appointmentsByMonth, setAppointmentsByMonth] = useState([]);
   const [selectedDoctor, setSelectedDoctor] = useState('all');
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     if (aToken) {
@@ -160,39 +161,59 @@ const Dashboard = () => {
     },
   };
 
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await Promise.all([
+      getDashData(),
+      getAllDoctors(),
+      getAllAppointments()
+    ]);
+    setRefreshing(false);
+  };
+
   return (
     dashData && (
       <div className="m-5">
-        <div className="flex flex-wrap gap-3">
-          <div className="flex items-center gap-2 bg-white p-4 min-w-52 rounded border-2 border-gray-100 cursor-pointer hover:scale-105 transition-all">
-            <img src={assets.doctor_icon} alt="" className="w-14" />
-            <div>
-              <p className="text-xl  font-semibold text-gray-600">
-                {dashData.doctors}
-              </p>
-              <p className="text-gray-400">Doctors</p>
+        <div className="flex flex-wrap gap-3 justify-between items-center">
+          <div className="flex gap-3 flex-wrap">
+            <div className="flex items-center gap-2 bg-white p-4 min-w-52 rounded border-2 border-gray-100 cursor-pointer hover:scale-105 transition-all">
+              <img src={assets.doctor_icon} alt="" className="w-14" />
+              <div>
+                <p className="text-xl  font-semibold text-gray-600">
+                  {dashData.doctors}
+                </p>
+                <p className="text-gray-400">Doctors</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 bg-white p-4 min-w-52 rounded border-2 border-gray-100 cursor-pointer hover:scale-105 transition-all">
+              <img src={assets.appointments_icon} alt="" className="w-14" />
+              <div>
+                <p className="text-xl  font-semibold text-gray-600">
+                  {dashData.appointments}
+                </p>
+                <p className="text-gray-400">Appointments</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 bg-white p-4 min-w-52 rounded border-2 border-gray-100 cursor-pointer hover:scale-105 transition-all">
+              <img src={assets.patients_icon} alt="" className="w-14" />
+              <div>
+                <p className="text-xl  font-semibold text-gray-600">
+                  {dashData.patients}
+                </p>
+                <p className="text-gray-400">Patients</p>
+              </div>
             </div>
           </div>
-
-          <div className="flex items-center gap-2 bg-white p-4 min-w-52 rounded border-2 border-gray-100 cursor-pointer hover:scale-105 transition-all">
-            <img src={assets.appointments_icon} alt="" className="w-14" />
-            <div>
-              <p className="text-xl  font-semibold text-gray-600">
-                {dashData.appointments}
-              </p>
-              <p className="text-gray-400">Appointments</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 bg-white p-4 min-w-52 rounded border-2 border-gray-100 cursor-pointer hover:scale-105 transition-all">
-            <img src={assets.patients_icon} alt="" className="w-14" />
-            <div>
-              <p className="text-xl  font-semibold text-gray-600">
-                {dashData.patients}
-              </p>
-              <p className="text-gray-400">Patients</p>
-            </div>
-          </div>
+          <button
+            onClick={handleRefresh}
+            className="flex items-center gap-1 px-4 py-2 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-all"
+            disabled={refreshing}
+          >
+            {refreshing && (
+              <svg className="w-5 h-5 animate-spin text-blue-700" fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg>
+            )}
+            Refresh
+          </button>
         </div>
 
         {/* Charts section */}

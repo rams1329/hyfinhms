@@ -11,19 +11,22 @@ const MyProfile = () => {
 
   const [isEdit, setIsEdit] = useState(false);
   const [image, setImage] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [serverBusy, setServerBusy] = useState(false);
+  const [showPiiInfo, setShowPiiInfo] = useState(false);
 
   const updateUserProfileData = async () => {
     try {
+      setIsUploading(true);
+      setServerBusy(false);
+      let busyTimeout = setTimeout(() => setServerBusy(true), 5000);
       const formData = new FormData();
-
       formData.append("name", userData.name);
       formData.append("phone", userData.phone);
       formData.append("address", JSON.stringify(userData.address));
       formData.append("gender", userData.gender);
       formData.append("dob", userData.dob);
-
       image && formData.append("image", image);
-
       const { data } = await axios.put(
         `${backendUrl}/api/user/update-profile`,
         formData,
@@ -33,7 +36,9 @@ const MyProfile = () => {
           },
         }
       );
-
+      clearTimeout(busyTimeout);
+      setIsUploading(false);
+      setServerBusy(false);
       if (data.success) {
         toast.success(data.message);
         await loadUserProfileData();
@@ -43,6 +48,8 @@ const MyProfile = () => {
         toast.error(data.message);
       }
     } catch (error) {
+      setIsUploading(false);
+      setServerBusy(false);
       console.log(error);
       toast.error(error.message);
     }
@@ -108,7 +115,37 @@ const MyProfile = () => {
                 className="bg-gray-100 max-w-52"
               />
             ) : (
-              <p className="text-blue-400">{userData?.phone}</p>
+              <span className="flex items-center gap-2 relative">
+                <p className="text-blue-400 mb-0">{userData?.phone}</p>
+                <button
+                  type="button"
+                  className="ml-1 p-1 rounded-full hover:bg-blue-100 focus:outline-none"
+                  onClick={() => setShowPiiInfo((v) => !v)}
+                  aria-label="PII Encryption Info"
+                >
+                  <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" fill="white"/><path strokeLinecap="round" strokeLinejoin="round" d="M12 16v-4m0-4h.01" /></svg>
+                </button>
+                {showPiiInfo && (
+                  <div className="absolute left-6 top-6 z-50 bg-white border border-blue-200 rounded shadow-lg p-4 w-72 text-xs text-gray-700" onMouseLeave={() => setShowPiiInfo(false)}>
+                    <div className="font-semibold text-blue-600 mb-2">PII Encryption</div>
+                    <div className="mb-2">Your phone number is protected using strong encryption:</div>
+                    <div className="flex flex-col items-center mb-2">
+                      <span className="font-mono text-xs text-gray-600">User Input Phone</span>
+                      <span className="text-blue-400">↓</span>
+                      <span className="font-mono text-xs text-gray-600">[ Encrypt ]</span>
+                      <span className="text-blue-400">↓</span>
+                      <span className="font-mono text-xs text-gray-600">Store in MongoDB</span>
+                      <span className="text-blue-400">↓</span>
+                      <span className="font-mono text-xs text-gray-600">[ Decrypt ]</span>
+                      <span className="text-blue-400">↓</span>
+                      <span className="font-mono text-xs text-gray-600">[ Mask ]</span>
+                      <span className="text-blue-400">↓</span>
+                      <span className="font-mono text-xs text-gray-600">Frontend Display</span>
+                    </div>
+                    <div className="text-gray-500">Only the first 2 and last 4 digits are shown. The rest are hidden for your privacy.</div>
+                  </div>
+                )}
+              </span>
             )}
             <p className="font-medium">Address:</p>
             {isEdit ? (
@@ -181,12 +218,25 @@ const MyProfile = () => {
 
         <div className="mt-10">
           {isEdit ? (
-            <button
-              onClick={updateUserProfileData}
-              className="border border-primary px-8 py-2 rounded-full hover:bg-primary hover:text-white transition-all"
-            >
-              Save information
-            </button>
+            <>
+              <button
+                onClick={updateUserProfileData}
+                className="border border-primary px-8 py-2 rounded-full hover:bg-primary hover:text-white transition-all"
+                disabled={isUploading}
+              >
+                {isUploading ? (
+                  <span>
+                    <svg className="inline w-5 h-5 mr-2 animate-spin text-primary" fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg>
+                    Uploading...
+                  </span>
+                ) : (
+                  "Save information"
+                )}
+              </button>
+              {isUploading && serverBusy && (
+                <div className="text-red-500 mt-2">Server busy, please wait...</div>
+              )}
+            </>
           ) : (
             <button
               onClick={() => setIsEdit(true)}
