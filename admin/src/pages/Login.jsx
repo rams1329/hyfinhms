@@ -11,9 +11,33 @@ const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [isExpired, setIsExpired] = useState(false);
+  const [expiryTime, setExpiryTime] = useState(null);
+  const [timeLeft, setTimeLeft] = useState("");
 
   const { setAToken, backendUrl } = useContext(AdminContext);
   const { setDToken } = useContext(DoctorContext);
+
+  useEffect(() => {
+    if (!isExpired || !expiryTime) return;
+    const interval = setInterval(() => {
+      const now = new Date();
+      const diff = expiryTime - now;
+      if (diff <= 0) {
+        setTimeLeft("Account is now active. Please try logging in again.");
+        setIsExpired(false);
+        setExpiryTime(null);
+      } else {
+        const minutes = Math.floor((diff / 1000 / 60) % 60);
+        const hours = Math.floor((diff / 1000 / 60 / 60) % 24);
+        const days = Math.floor(diff / 1000 / 60 / 60 / 24);
+        setTimeLeft(
+          `${days > 0 ? days + 'd ' : ''}${hours > 0 ? hours + 'h ' : ''}${minutes}m remaining`
+        );
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isExpired, expiryTime]);
 
   useEffect(() => {
     if (state === "Admin") {
@@ -28,7 +52,7 @@ const Login = () => {
 
   const onSubmitHandler = async (event) => {
     event.preventDefault();
-
+    if (isExpired) return;
     try {
       if (state === "Admin") {
         const { data } = await axios.post(`${backendUrl}/api/admin/login`, {
@@ -52,6 +76,10 @@ const Login = () => {
           console.log(data.token);
         } else {
           toast.error(data.message);
+          if (data.expired && data.expiresAt) {
+            setIsExpired(true);
+            setExpiryTime(new Date(data.expiresAt));
+          }
         }
       }
     } catch (error) {}
@@ -63,6 +91,12 @@ const Login = () => {
         <p className="text-2xl font-semibold m-auto">
           <span className="text-primary">{state}</span> Login
         </p>
+        {isExpired && (
+          <div style={{ color: 'red', margin: '1em 0', fontWeight: 'bold' }}>
+            Your account is temporarily suspended.<br />
+            {timeLeft}
+          </div>
+        )}
         <div className="w-full">
           <p>Email</p>
           <input
@@ -71,6 +105,7 @@ const Login = () => {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className="border border-[#DADADA] rounded w-full p-2 mt-1"
+            disabled={isExpired}
           />
         </div>
         <div className="w-full">
@@ -82,6 +117,7 @@ const Login = () => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="border border-[#DADADA] rounded w-full p-2 mt-1 pr-10"
+              disabled={isExpired}
             />
             <button
               type="button"
@@ -93,7 +129,7 @@ const Login = () => {
             </button>
           </div>
         </div>
-        <button className="bg-primary text-white w-full py-2 rounded-md text-base">
+        <button className="bg-primary text-white w-full py-2 rounded-md text-base" disabled={isExpired}>
           Login
         </button>
         {state === "Admin" ? (

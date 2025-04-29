@@ -6,6 +6,7 @@ import jwt from "jsonwebtoken";
 import doctorModel from "../models/doctorModel.js";
 import appointmentModel from "../models/appointmentModel.js";
 import userModel from "../models/userModel.js";
+import sessionModel from "../models/sessionModel.js";
 
 // API for adding doctor
 const addDoctor = async (req, res) => {
@@ -283,6 +284,107 @@ const demoteDoctorToDoctor = async (req, res) => {
   }
 };
 
+
+
+// Set account expiry
+const setAccountExpiry = async (req, res) => {
+  try {
+    const { userId, minutes = 0, hours = 0, days = 0 } = req.body;
+    
+    if (!userId) {
+      return res.json({
+        success: false,
+        message: "User ID is required"
+      });
+    }
+    
+    // Validate at least one time unit is provided
+    if (minutes === 0 && hours === 0 && days === 0) {
+      return res.json({
+        success: false,
+        message: "Please specify a valid expiry duration"
+      });
+    }
+    
+    const user = await userModel.findById(userId);
+    if (!user) {
+      return res.json({
+        success: false,
+        message: "User not found"
+      });
+    }
+    
+    // Calculate expiry time
+    const now = new Date();
+    const expiresAt = new Date(
+      now.getTime() + 
+      minutes * 60 * 1000 + 
+      hours * 60 * 60 * 1000 + 
+      days * 24 * 60 * 60 * 1000
+    );
+    
+    // Update user
+    user.expiresAt = expiresAt;
+    user.isExpired = true; // Set expired flag
+    await user.save();
+    
+    // Format expiry time for response
+    const formattedExpiry = expiresAt.toLocaleString();
+    
+    res.json({
+      success: true,
+      message: `Account suspended until ${formattedExpiry}`,
+      expiresAt: expiresAt
+    });
+  } catch (error) {
+    console.error("Set account expiry error:", error);
+    res.json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+// Unexpire account
+const unexpireAccount = async (req, res) => {
+  try {
+    const { userId } = req.body;
+    
+    if (!userId) {
+      return res.json({
+        success: false,
+        message: "User ID is required"
+      });
+    }
+    
+    const user = await userModel.findById(userId);
+    if (!user) {
+      return res.json({
+        success: false,
+        message: "User not found"
+      });
+    }
+    
+    // Remove expiry
+    user.expiresAt = null;
+    user.isExpired = false;
+    await user.save();
+    
+    res.json({
+      success: true,
+      message: "Account has been reactivated successfully"
+    });
+  } catch (error) {
+    console.error("Unexpire account error:", error);
+    res.json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+
+// Make sure to include these in your exports
 export {
   addDoctor,
   loginAdmin,
@@ -291,5 +393,7 @@ export {
   appointmentCancel,
   adminDashboard,
   promoteDoctorToAdmin,
-  demoteDoctorToDoctor
+  demoteDoctorToDoctor,
+  setAccountExpiry,
+  unexpireAccount
 };

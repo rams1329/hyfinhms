@@ -29,7 +29,9 @@ const changeAvailability = async (req, res) => {
 
 const doctorList = async (req, res) => {
   try {
-    const doctors = await doctorModel.find({}).select(["-password", "-email"]);
+    const doctors = await doctorModel.find({})
+      .populate('degree')
+      .select(["-password", "-email"]);
 
     res.json({
       success: true,
@@ -48,9 +50,9 @@ const doctorList = async (req, res) => {
 const loginDoctor = async (req, res) => {
   try {
     const { email, password } = req.body;
-
+    console.log("Doctor login attempt:", email);
     const doctor = await doctorModel.findOne({ email: email });
-
+    console.log("Doctor found:", doctor);
     if (!doctor) {
       return res.json({
         success: false,

@@ -39,9 +39,9 @@ const Doctors = () => {
     } else if (sortOption === "availability") {
       filtered.sort((a, b) => (b.available === a.available ? 0 : b.available ? 1 : -1));
     } else if (sortOption === "price-low") {
-      filtered.sort((a, b) => (a.consultationFee || 0) - (b.consultationFee || 0));
+      filtered.sort((a, b) => (a.fees || 0) - (b.fees || 0));
     } else if (sortOption === "price-high") {
-      filtered.sort((a, b) => (b.consultationFee || 0) - (a.consultationFee || 0));
+      filtered.sort((a, b) => (b.fees || 0) - (a.fees || 0));
     }
     
     setFilterDoc(filtered);
@@ -161,8 +161,8 @@ const Doctors = () => {
                 </div>
                 <p className="text-gray-900 text-lg font-medium">{item.name}</p>
                 <p className="text-gray-600 text-sm">{item.speciality}</p>
-                {item.consultationFee && (
-                  <p className="text-indigo-600 font-medium mt-1">Fee: ${item.consultationFee}</p>
+                {item.fees && (
+                  <p className="text-indigo-600 font-medium mt-1">Fee: ${item.fees}</p>
                 )}
               </div>
             </div>

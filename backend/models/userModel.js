@@ -121,9 +121,25 @@ const userSchema = new mongoose.Schema({
   isLoggedIn: {
     type: Boolean,
     default: false
+  },
+  expiresAt: {
+    type: Date,
+    default: null
+  },
+  isExpired: {
+    type: Boolean,
+    default: false
   }
 }, { timestamps: true });
 
+
+
+
+// Add a method to check if the account is expired
+userSchema.methods.isAccountExpired = function() {
+  if (!this.expiresAt) return false;
+  return new Date() < this.expiresAt;
+};
 // Add methods to handle account locking
 userSchema.methods.incrementLoginAttempts = async function() {
   // Reset attempts if lock has expired

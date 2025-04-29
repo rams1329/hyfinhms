@@ -1,5 +1,6 @@
 import jwt from "jsonwebtoken";
 import sessionModel from "../models/sessionModel.js";
+import userModel from "../models/userModel.js";
 
 // user authentication middleware
 const authUser = async (req, res, next) => {
@@ -37,6 +38,19 @@ const authUser = async (req, res, next) => {
     const token_decode = jwt.verify(token, process.env.JWT_SECRET);
     console.log("[authUser] Token decoded:", token_decode);
     req.body.userId = token_decode.id;
+
+    // Check if user account is expired
+    const user = await userModel.findById(token_decode.id);
+    if (user && (user.isExpired || (user.expiresAt && new Date() < new Date(user.expiresAt)))) {
+      // Remove session and force logout
+      await sessionModel.deleteOne({ token });
+      return res.json({
+        success: false,
+        message: "Your account has expired. Please login again.",
+        expired: true
+      });
+    }
+
     next();
   } catch (error) {
     console.log("[authUser] Error:", error);

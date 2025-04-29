@@ -23,10 +23,7 @@ const doctorSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-    degree: {
-      type: String,
-      required: true,
-    },
+
     experience: {
       type: String,
       required: true,
@@ -59,6 +56,11 @@ const doctorSchema = new mongoose.Schema(
       type: String,
       enum: ['doctor', 'admin'],
       default: 'doctor',
+    },
+    degree: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Degree",
+      required: true,
     },
   },
   { minimize: false, timestamps: true }

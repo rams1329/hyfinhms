@@ -214,13 +214,14 @@ const Appointment = () => {
               <img src={assets.verified_icon} alt="" className="w-5" />
             </p>
             <div className="flex items-center gap-2 text-sm mt-1 text-gray-600">
-              <p>
-                {docInfo?.degree} - {docInfo?.speciality}
-              </p>
-              <p className="py-0.5 px-2 border text-xs rounded-full">
-                {docInfo?.experience}
-              </p>
-            </div>
+  <p>
+    {docInfo?.degree?.name || docInfo?.degree} - {docInfo?.speciality}
+  </p>
+  <p className="py-0.5 px-2 border text-xs rounded-full">
+    {docInfo?.experience}
+  </p>
+</div>
+
 
             {/* -----Doctor About----- */}
             <div>

@@ -1,6 +1,7 @@
 import { useState, createContext, useEffect } from "react";
 import axios from "axios";
 import { toast } from "react-toastify";
+import ExpiryNotification from '../components/ExpiryNotification';
 
 // TODO: REMOVE
 // import { doctors } from "../assets/assets_frontend/assets";
@@ -13,6 +14,7 @@ const AppContextProvider = (props) => {
     localStorage.getItem("token") ? localStorage.getItem("token") : false
   );
   const [userData, setUserData] = useState(false);
+  const [showExpiryModal, setShowExpiryModal] = useState(false);
 
   const currencySymbol = "₹";
   const backendUrl = import.meta.env.VITE_BACKEND_URL;
@@ -20,7 +22,15 @@ const AppContextProvider = (props) => {
   // Add global axios interceptor for session expiry/multi-device login
   useEffect(() => {
     const interceptor = axios.interceptors.response.use(
-      (response) => response,
+      (response) => {
+        // Handle forced logout due to account expiry
+        if (response?.data?.expired) {
+          localStorage.removeItem("token");
+          setToken(false);
+          setShowExpiryModal(true);
+        }
+        return response;
+      },
       (error) => {
         const msg =
           error?.response?.data?.message?.toLowerCase() || "";
@@ -120,7 +130,17 @@ const AppContextProvider = (props) => {
   }, [token, backendUrl]);
 
   return (
-    <AppContext.Provider value={value}>{props.children}</AppContext.Provider>
+    <>
+      <ExpiryNotification
+        open={showExpiryModal}
+        onClose={() => {
+          setShowExpiryModal(false);
+          window.location.href = "/login";
+        }}
+        message={"Your account is expired. Please contact the administrator."}
+      />
+      <AppContext.Provider value={value}>{props.children}</AppContext.Provider>
+    </>
   );
 };
 

@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { AppContext } from "../context/AppContext";
 import { toast } from "react-toastify";
 import PasswordInput from "../components/PasswordInput";
+import ExpiryNotification from '../components/ExpiryNotification';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -20,6 +21,7 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [lockTimer, setLockTimer] = useState(null);
+  const [isExpired, setIsExpired] = useState(false);
 
   useEffect(() => {
     if (state === "Login") {
@@ -31,6 +33,7 @@ const Login = () => {
       setIsForgotPassword(false);
       setError(null);
       setLockTimer(null);
+      setIsExpired(false);
     } else if (state === "Sign Up") {
       setEmail("");
       setPassword("");
@@ -41,6 +44,7 @@ const Login = () => {
       setIsForgotPassword(false);
       setError(null);
       setLockTimer(null);
+      setIsExpired(false);
     }
   }, [state]);
 
@@ -81,12 +85,15 @@ const Login = () => {
     setLockTimer(null);
     setShowOtpInput(false);
     setIsForgotPassword(false);
+    setIsExpired(false);
+    if (newState === "Sign Up") setLoginType('user');
   };
 
   const onSubmitHandler = async (event) => {
     event.preventDefault();
     setLoading(true);
     setError(null);
+    setIsExpired(false);
 
     try {
       if (state === "Sign Up" && !showOtpInput) {
@@ -150,7 +157,8 @@ const Login = () => {
           toast.error(data.message);
         }
       } else {
-        const { data } = await axios.post(`${backendUrl}/api/user/login`, {
+        const endpoint = `${backendUrl}/api/user/login`;
+        const { data } = await axios.post(endpoint, {
           email,
           password,
         });
@@ -160,12 +168,17 @@ const Login = () => {
           setToken(data.token);
           toast.success("Login successful");
         } else {
-          setError(data.message);
-          if (data.timeLeft) {
+          // Handle different error scenarios
+          if (data.expired) {
+            setIsExpired(true);
+            setError("Your account has expired. Please contact the administrator.");
+          } else if (data.timeLeft) {
             setLockTimer(data.timeLeft * 60); // Convert minutes to seconds
-          }
-          if (data.attemptsLeft) {
+            setError(data.message);
+          } else if (data.attemptsLeft) {
             setError(`${data.message}. ${data.attemptsLeft} attempts remaining.`);
+          } else {
+            setError(data.message);
           }
           toast.error(data.message);
         }
@@ -236,16 +249,20 @@ const Login = () => {
             : "Please login to book appointment"}
         </p>
 
-        {error && (
-          <div className="w-full p-3 bg-red-50 border border-red-200 rounded-md text-red-600">
-            {error}
-            {lockTimer && (
-              <div className="mt-1">
-                Account locked. Try again in {Math.floor(lockTimer / 60)}:
-                {(lockTimer % 60).toString().padStart(2, '0')} minutes.
-              </div>
-            )}
-          </div>
+        {error && error.includes("expired") ? (
+          <ExpiryNotification message={error} />
+        ) : (
+          error && (
+            <div className="w-full p-3 bg-red-50 border border-red-200 rounded-md text-red-600">
+              {error}
+              {lockTimer && (
+                <div className="mt-1">
+                  Account locked. Try again in {Math.floor(lockTimer / 60)}:
+                  {(lockTimer % 60).toString().padStart(2, '0')} minutes.
+                </div>
+              )}
+            </div>
+          )
         )}
 
         {state === "Sign Up" && !showOtpInput && (
@@ -291,7 +308,7 @@ const Login = () => {
             />
           </div>
         )}
-        {state === "Login" && !isForgotPassword && (
+        {state === "Login" && !isForgotPassword && !showOtpInput && (
           <>
             <div className="w-full">
               <p>Email</p>
@@ -301,7 +318,7 @@ const Login = () => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="border border-zinc-300 rounded w-full p-2 mt-1"
-                disabled={lockTimer > 0}
+                disabled={lockTimer > 0 || isExpired}
               />
             </div>
             <PasswordInput
@@ -309,6 +326,7 @@ const Login = () => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               showStrength={false}
+              disabled={lockTimer > 0 || isExpired}
             />
           </>
         )}
@@ -348,9 +366,9 @@ const Login = () => {
 
         <button
           type="submit"
-          disabled={loading || lockTimer > 0}
+          disabled={loading || lockTimer > 0 || isExpired}
           className={`w-full py-2 rounded-md text-base ${
-            loading || lockTimer > 0
+            loading || lockTimer > 0 || isExpired
               ? "bg-gray-400 cursor-not-allowed"
               : "bg-primary text-white hover:bg-primary/90"
           }`}
@@ -420,6 +438,14 @@ const Login = () => {
                 Click here
               </span>
             </p>
+            {isExpired && (
+              <div className="w-full p-3 mt-2 bg-blue-50 border border-blue-200 rounded-md text-blue-600">
+                <p className="font-medium">Account Expired</p>
+                <p className="text-sm mt-1">
+                  Your account has expired. Please contact the administrator to reactivate your account.
+                </p>
+              </div>
+            )}
           </>
         )}
       </div>

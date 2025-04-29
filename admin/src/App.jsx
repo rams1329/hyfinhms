@@ -14,6 +14,9 @@ import { DoctorContext } from "./context/DoctorContext";
 import DoctorDashboard from "./pages/Doctor/DoctorDashboard";
 import DoctorAppointments from "./pages/Doctor/DoctorAppointments";
 import DoctorProfile from "./pages/Doctor/DoctorProfile";
+import AccountExpiryManagement from './pages/Admin/AccountExpiryManagement';
+import DegreeManagement from './pages/Admin/DegreeManagement';
+import ActivityLogs from './pages/Admin/ActivityLogs';
 
 const App = () => {
   const { aToken } = useContext(AdminContext);
@@ -33,6 +36,9 @@ const App = () => {
             <Route path="/all-appointments" element={<AllAppointments />} />
             <Route path="/add-doctor" element={<AddDoctor />} />
             <Route path="/doctor-list" element={<DoctorsList />} />
+            <Route path="/admin/account-expiry" element={<AccountExpiryManagement />} />
+            <Route path="/admin/degree-management" element={<DegreeManagement />} />
+            <Route path="/admin/activity-logs" element={<ActivityLogs />} />
 
             {/* Doctor Route */}
             <Route path="/doctor-dashboard" element={<DoctorDashboard />} />
