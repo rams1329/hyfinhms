@@ -17,7 +17,8 @@ const AppContextProvider = (props) => {
   const [showExpiryModal, setShowExpiryModal] = useState(false);
 
   const currencySymbol = "₹";
-  const backendUrl = import.meta.env.VITE_BACKEND_URL;
+  const backendUrl = "https://hyfinhms-backend.onrender.com";
+
 
   // Add global axios interceptor for session expiry/multi-device login
   useEffect(() => {
